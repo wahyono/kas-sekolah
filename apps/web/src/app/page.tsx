@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || `${API_URL}`;
+
 interface School {
   id: string;
   name: string;
@@ -88,7 +90,7 @@ export default function DashboardPage() {
 
   const fetchSchools = async (userRole?: string) => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/schools');
+      const res = await fetch(`${API_URL}/schools`);
       if (res.ok) {
         const data = await res.json();
         setSchools(data);
@@ -105,7 +107,7 @@ export default function DashboardPage() {
 
   const fetchUsers = async (token: string, schoolId?: string) => {
     try {
-      const url = schoolId ? `http://localhost:3001/api/v1/users?schoolId=${schoolId}` : 'http://localhost:3001/api/v1/users';
+      const url = schoolId ? `${API_URL}/users?schoolId=${schoolId}` : `${API_URL}/users`;
       const res = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -122,7 +124,7 @@ export default function DashboardPage() {
 
   const fetchAcademicYears = async (token: string, schoolId?: string) => {
     try {
-      const url = schoolId ? `http://localhost:3001/api/v1/academic-years?schoolId=${schoolId}` : 'http://localhost:3001/api/v1/academic-years';
+      const url = schoolId ? `${API_URL}/academic-years?schoolId=${schoolId}` : `${API_URL}/academic-years`;
       const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setAcademicYears(await res.json());
     } catch (error) {
@@ -132,7 +134,7 @@ export default function DashboardPage() {
 
   const fetchClasses = async (token: string, academicYearId?: string, schoolId?: string) => {
     try {
-      let url = 'http://localhost:3001/api/v1/classes';
+      let url = `${API_URL}/classes`;
       const params = new URLSearchParams();
       if (academicYearId) params.append('academicYearId', academicYearId);
       if (schoolId) params.append('schoolId', schoolId);
@@ -151,7 +153,7 @@ export default function DashboardPage() {
         setTransactions([]);
         return;
       }
-      const url = `http://localhost:3001/api/v1/transactions/school/${schoolId}`;
+      const url = `${API_URL}/transactions/school/${schoolId}`;
       const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) {
         const raw = await res.json();
@@ -182,7 +184,7 @@ export default function DashboardPage() {
         setBillings([]);
         return;
       }
-      const url = `http://localhost:3001/api/v1/billings/school/${schoolId}`;
+      const url = `${API_URL}/billings/school/${schoolId}`;
       const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) {
         const raw = await res.json();
@@ -406,7 +408,7 @@ export default function DashboardPage() {
     setIsLoggingIn(true);
 
     try {
-      const res = await fetch('http://localhost:3001/api/v1/auth/login', {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
@@ -457,7 +459,7 @@ export default function DashboardPage() {
     
     try {
       if (editingSchoolId) {
-        const res = await fetch(`http://localhost:3001/api/v1/schools/${editingSchoolId}`, {
+        const res = await fetch(`${API_URL}/schools/${editingSchoolId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: newSchoolName, code: newSchoolCode })
@@ -467,7 +469,7 @@ export default function DashboardPage() {
           fetchSchools();
         }
       } else {
-        const res = await fetch('http://localhost:3001/api/v1/schools', {
+        const res = await fetch(`${API_URL}/schools`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: newSchoolName, code: newSchoolCode })
@@ -498,7 +500,7 @@ export default function DashboardPage() {
   const handleDeleteSchool = async (id: string) => {
     if (confirm('Apakah Anda yakin ingin menghapus sekolah ini?')) {
       try {
-        const res = await fetch(`http://localhost:3001/api/v1/schools/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${API_URL}/schools/${id}`, { method: 'DELETE' });
         if (res.ok) {
           showToast('✓ Sekolah berhasil dihapus.');
           if (activeSchoolId === id) setActiveSchoolId('');
@@ -587,7 +589,7 @@ export default function DashboardPage() {
         gender: studentGender
       };
 
-      const res = await fetch('http://localhost:3001/api/v1/auth/register', {
+      const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -629,7 +631,7 @@ export default function DashboardPage() {
       }
 
       if (editingUserId) {
-        const res = await fetch(`http://localhost:3001/api/v1/users/${editingUserId}`, {
+        const res = await fetch(`${API_URL}/users/${editingUserId}`, {
           method: 'PATCH',
           headers: { 
             'Content-Type': 'application/json',
@@ -645,7 +647,7 @@ export default function DashboardPage() {
         if (newUserRole === 'KORLAS') payloadRegister.managedClassId = selectedKorlasClass;
         if (newUserRole === 'PARENT') payloadRegister.studentId = selectedChildStudentId;
         
-        const res = await fetch('http://localhost:3001/api/v1/auth/register', {
+        const res = await fetch(`${API_URL}/auth/register`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -691,7 +693,7 @@ export default function DashboardPage() {
     if (confirm('Apakah Anda yakin ingin menghapus akun ini?')) {
       if (!currentUser?.token) return;
       try {
-        const res = await fetch(`http://localhost:3001/api/v1/users/${id}`, {
+        const res = await fetch(`${API_URL}/users/${id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${currentUser.token}` }
         });
@@ -719,8 +721,8 @@ export default function DashboardPage() {
       const payload = { schoolId: activeSchoolId, year: newAcademicYearName, isCurrent: newAcademicYearIsCurrent };
       const method = editingAcademicYearId ? 'PATCH' : 'POST';
       const url = editingAcademicYearId
-        ? `http://localhost:3001/api/v1/academic-years/${editingAcademicYearId}`
-        : 'http://localhost:3001/api/v1/academic-years';
+        ? `${API_URL}/academic-years/${editingAcademicYearId}`
+        : `${API_URL}/academic-years`;
 
       const res = await fetch(url, {
         method,
@@ -748,7 +750,7 @@ export default function DashboardPage() {
     if (confirm('Apakah Anda yakin ingin menghapus tahun ajaran ini? Data kelas yang terhubung mungkin akan ikut terhapus!')) {
       if (!currentUser?.token) return;
       try {
-        const res = await fetch(`http://localhost:3001/api/v1/academic-years/${id}`, {
+        const res = await fetch(`${API_URL}/academic-years/${id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${currentUser.token}` }
         });
@@ -772,8 +774,8 @@ export default function DashboardPage() {
       const payload = { name: newClassName, academicYearId: newClassAcademicYearId };
       const method = editingClassId ? 'PATCH' : 'POST';
       const url = editingClassId 
-        ? `http://localhost:3001/api/v1/classes/${editingClassId}` 
-        : 'http://localhost:3001/api/v1/classes';
+        ? `${API_URL}/classes/${editingClassId}` 
+        : `${API_URL}/classes`;
 
       const res = await fetch(url, {
         method,
@@ -805,7 +807,7 @@ export default function DashboardPage() {
     if (confirm('Apakah Anda yakin ingin menghapus kelas ini?')) {
       if (!currentUser?.token) return;
       try {
-        const res = await fetch(`http://localhost:3001/api/v1/classes/${id}`, {
+        const res = await fetch(`${API_URL}/classes/${id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${currentUser.token}` }
         });
@@ -832,7 +834,7 @@ export default function DashboardPage() {
 
     try {
       // 1. Fetch Cash Account for the Class
-      const cashRes = await fetch(`http://localhost:3001/api/v1/cash-accounts/class/${assignedClassId}`, {
+      const cashRes = await fetch(`${API_URL}/cash-accounts/class/${assignedClassId}`, {
         headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       if (!cashRes.ok) throw new Error('Gagal mengambil data akun kas');
@@ -857,7 +859,7 @@ export default function DashboardPage() {
         dueDate
       };
 
-      const res = await fetch('http://localhost:3001/api/v1/billings/dues-scheme', {
+      const res = await fetch(`${API_URL}/billings/dues-scheme`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
         body: JSON.stringify(payload)
@@ -895,7 +897,7 @@ export default function DashboardPage() {
 
     try {
       // 1. Fetch Cash Account for the Class
-      const cashRes = await fetch(`http://localhost:3001/api/v1/cash-accounts/class/${assignedClassId}`, {
+      const cashRes = await fetch(`${API_URL}/cash-accounts/class/${assignedClassId}`, {
         headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       if (!cashRes.ok) throw new Error('Gagal mengambil data akun kas');
@@ -916,7 +918,7 @@ export default function DashboardPage() {
         paymentMethod: payMethod
       };
 
-      const res = await fetch('http://localhost:3001/api/v1/transactions', {
+      const res = await fetch(`${API_URL}/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
         body: JSON.stringify(payload)
@@ -953,7 +955,7 @@ export default function DashboardPage() {
         showToast('❌ Gagal mendapatkan ID Kelas siswa.');
         return;
       }
-      const cashRes = await fetch(`http://localhost:3001/api/v1/cash-accounts/class/${assignedClassId}`, {
+      const cashRes = await fetch(`${API_URL}/cash-accounts/class/${assignedClassId}`, {
         headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       if (!cashRes.ok) throw new Error('Gagal mengambil data akun kas');
@@ -975,7 +977,7 @@ export default function DashboardPage() {
         paymentMethod: payMethod
       };
 
-      const res = await fetch('http://localhost:3001/api/v1/transactions', {
+      const res = await fetch(`${API_URL}/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
         body: JSON.stringify(payload)
@@ -998,7 +1000,7 @@ export default function DashboardPage() {
           description: `${payExcessAction} dari ${selectedBilling.studentName} (${selectedBilling.className || 'Kelas 5-A'})`,
           paymentMethod: payMethod
         };
-        await fetch('http://localhost:3001/api/v1/transactions', {
+        await fetch(`${API_URL}/transactions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
           body: JSON.stringify(excessPayload)
@@ -1079,7 +1081,7 @@ export default function DashboardPage() {
 
     // Dispatch real email via NestJS Backend
     const pdfBase64 = doc.output('datauristring');
-    fetch('http://localhost:3001/api/v1/notifications/email-report', {
+    fetch(`${API_URL}/notifications/email-report`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
