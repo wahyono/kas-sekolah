@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  TREASURER
+  KORLAS
+  STUDENT
+  PARENT
+}
+
+enum Gender {
+  MALE    // Laki-laki (L)
+  FEMALE  // Perempuan (P)
+}
+
+enum Religion {
+  ISLAM
+  CHRISTIAN
+  CATHOLIC
+  HINDU
+  BUDDHA
+  CONFUCIAN
+  OTHER
+}
+
+enum BillingStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model School {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  code          String         @unique
+  address       String?
+  phone         String?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  users         User[]
+  academicYears AcademicYear[]
+
+  @@map("schools")
+}
+
+model User {
+  id           String            @id @default(uuid()) @db.Uuid
+  schoolId     String            @map("school_id") @db.Uuid
+  nis          String?           @unique @map("nis")
+  nisn         String?           @unique @map("nisn")
+  name         String
+  email        String            @unique
+  phone        String?
+  gender       Gender?
+  religion     Religion?
+  passwordHash String            @map("password_hash")
+  role         UserRole          @default(STUDENT)
+  studentId    String?           @map("student_id") @db.Uuid
+  managedClass String?           @map("managed_class")
+  isActive     Boolean           @default(true) @map("is_active")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  school       School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  childStudent User?             @relation("ParentStudentLink", fields: [studentId], references: [id], onDelete: SetNull)
+  parents      User[]            @relation("ParentStudentLink")
+  enrollments  ClassEnrollment[] @relation("StudentEnrollments")
+  billings     StudentBilling[]  @relation("StudentBillings")
+  createdTxns  Transaction[]     @relation("TransactionCreator")
+  expenses     Expense[]         @relation("ExpenseRequester")
+  approvedExps Expense[]         @relation("ExpenseApprover")
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model AcademicYear {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  year      String   // e.g. "2025/2026"
+  isCurrent Boolean  @default(false) @map("is_current")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classes   Class[]
+
+  @@map("academic_years")
+}
+
+model Class {
+  id             String            @id @default(uuid()) @db.Uuid
+  academicYearId String            @map("academic_year_id") @db.Uuid
+  name           String            // e.g. "10-IPA-1"
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  academicYear   AcademicYear      @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  enrollments    ClassEnrollment[]
+  cashAccounts   CashAccount[]
+
+  @@map("classes")
+}
+
+model ClassEnrollment {
+  id        String   @id @default(uuid()) @db.Uuid
+  classId   String   @map("class_id") @db.Uuid
+  studentId String   @map("student_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student   User     @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, studentId])
+  @@map("class_enrollments")
+}
+
+model CashAccount {
+  id             String           @id @default(uuid()) @db.Uuid
+  classId        String           @map("class_id") @db.Uuid
+  name           String           // e.g. "Kas Utama Kelas 10-IPA-1"
+  currentBalance Decimal          @default(0.00) @map("current_balance") @db.Decimal(15, 2)
+  currency       String           @default("IDR")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  class          Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  duesSchemes    DuesScheme[]
+  transactions   Transaction[]
+  expenses       Expense[]
+
+  @@map("cash_accounts")
+}
+
+model DuesScheme {
+  id            String           @id @default(uuid()) @db.Uuid
+  cashAccountId String           @map("cash_account_id") @db.Uuid
+  title         String           // e.g. "Iuran Kas Bulanan Agustus 2026"
+  amount        Decimal          @db.Decimal(15, 2)
+  dueDate       DateTime         @map("due_date")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  cashAccount   CashAccount      @relation(fields: [cashAccountId], references: [id], onDelete: Cascade)
+  billings      StudentBilling[]
+
+  @@map("dues_schemes")
+}
+
+model StudentBilling {
+  id           String         @id @default(uuid()) @db.Uuid
+  duesSchemeId String         @map("dues_scheme_id") @db.Uuid
+  studentId    String         @map("student_id") @db.Uuid
+  amountDue    Decimal        @map("amount_due") @db.Decimal(15, 2)
+  amountPaid   Decimal        @default(0.00) @map("amount_paid") @db.Decimal(15, 2)
+  status       BillingStatus  @default(PENDING)
+  dueDate      DateTime       @map("due_date")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  duesScheme   DuesScheme     @relation(fields: [duesSchemeId], references: [id], onDelete: Cascade)
+  student      User           @relation("StudentBillings", fields: [studentId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("student_billings")
+}
+
+model Transaction {
+  id            String          @id @default(uuid()) @db.Uuid
+  cashAccountId String          @map("cash_account_id") @db.Uuid
+  billingId     String?         @map("billing_id") @db.Uuid
+  type          TransactionType
+  amount        Decimal         @db.Decimal(15, 2)
+  category      String
+  description   String
+  receiptUrl    String?         @map("receipt_url")
+  createdBy     String          @map("created_by") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  cashAccount   CashAccount     @relation(fields: [cashAccountId], references: [id], onDelete: Cascade)
+  billing       StudentBilling? @relation(fields: [billingId], references: [id], onDelete: SetNull)
+  creator       User            @relation("TransactionCreator", fields: [createdBy], references: [id])
+
+  @@map("transactions")
+}
+
+model Expense {
+  id             String         @id @default(uuid()) @db.Uuid
+  cashAccountId  String         @map("cash_account_id") @db.Uuid
+  amount         Decimal        @db.Decimal(15, 2)
+  title          String
+  description    String
+  receiptUrl     String?        @map("receipt_url")
+  approvalStatus ApprovalStatus @default(PENDING) @map("approval_status")
+  requestedBy    String         @map("requested_by") @db.Uuid
+  approvedBy     String?        @map("approved_by") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  cashAccount    CashAccount    @relation(fields: [cashAccountId], references: [id], onDelete: Cascade)
+  requester      User           @relation("ExpenseRequester", fields: [requestedBy], references: [id])
+  approver       User?          @relation("ExpenseApprover", fields: [approvedBy], references: [id])
+
+  @@map("expenses")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  action    String
+  resource  String
+  payload   Json?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}

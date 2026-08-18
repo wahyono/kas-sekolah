@@ -1,0 +1,38 @@
+[
+  {
+    "id": "215b8dce-7272-48df-b822-f8feb8968c29",
+    "schoolId": "9ebd4038-1059-4ae9-9a07-63a074c15c58",
+    "nis": null,
+    "nisn": null,
+    "name": "adminsma55",
+    "email": "adminsma55@yahoo.com",
+    "phone": null,
+    "gender": null,
+    "religion": null,
+    "passwordHash": "$argon2id$v=19$m=65536,p=4,t=3$Gl/EP9LU5s/68in22kS6Pg$hQHT4AXUIc75RFM1wC9Qf8Psmp0m+q7OpMGUOhES9M8",
+    "role": "ADMIN",
+    "studentId": null,
+    "managedClass": null,
+    "isActive": true,
+    "createdAt": "2026-07-31T12:17:54.666Z",
+    "updatedAt": "2026-07-31T12:17:54.666Z"
+  },
+  {
+    "id": "35c29f78-2df4-44b4-a8af-669b7437fb0c",
+    "schoolId": "4f9c794f-4261-457b-82fe-e54f5e962864",
+    "nis": null,
+    "nisn": null,
+    "name": "adminsd08",
+    "email": "adminsd08@yahoo.com",
+    "phone": null,
+    "gender": null,
+    "religion": null,
+    "passwordHash": "$argon2id$v=19$m=65536,p=4,t=3$/1/NMjIqhFBhYhhd1lS9JQ$xekaBUXrLRwBDJj+xjmmz4zlrLDUUX/kSVcBi9hg1xI",
+    "role": "ADMIN",
+    "studentId": null,
+    "managedClass": null,
+    "isActive": true,
+    "createdAt": "2026-07-31T12:31:11.000Z",
+    "updatedAt": "2026-07-31T12:31:11.000Z"
+  }
+]
