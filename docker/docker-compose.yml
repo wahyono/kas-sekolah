@@ -1,20 +1,22 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: kas_sekolah_postgres
+  mysql:
+    image: mysql:8.0
+    container_name: kas_sekolah_mysql
     restart: always
     environment:
-      POSTGRES_USER: kas_user
-      POSTGRES_PASSWORD: kas_password
-      POSTGRES_DB: kas_sekolah_db
+      MYSQL_ROOT_PASSWORD: kas_root_password
+      MYSQL_DATABASE: kas_sekolah_db
+      MYSQL_USER: kas_user
+      MYSQL_PASSWORD: kas_password
     ports:
-      - '5432:5432'
+      - '3306:3306'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kas_user -d kas_sekolah_db"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "kas_user", "-pkas_password"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,5 +36,5 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
+  mysql_data:
   redis_data:

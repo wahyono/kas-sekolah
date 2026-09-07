@@ -77,10 +77,10 @@ export class StudentService {
         ...(search
           ? {
               OR: [
-                { name: { contains: search, mode: 'insensitive' } },
+                { name: { contains: search } },
                 { nis: { contains: search } },
                 { nisn: { contains: search } },
-                { email: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search } },
               ],
             }
           : {}),

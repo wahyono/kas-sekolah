@@ -43,8 +43,8 @@ export class UserService {
     if (search) {
       andConditions.push({
         OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
+          { name: { contains: search } },
+          { email: { contains: search } },
         ]
       });
     }
