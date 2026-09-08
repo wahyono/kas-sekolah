@@ -843,7 +843,7 @@ export default function DashboardPage() {
         showToast('❌ Akun Kas Utama untuk kelas ini belum ada.');
         return;
       }
-      const cashAccountId = cashAccounts[0].id;
+      const cashAccountId = Array.isArray(cashAccounts) ? cashAccounts[0]?.id : cashAccounts?.id;
 
       // Calculate next due date based on cronDay
       const nextMonth = new Date();
@@ -2467,7 +2467,7 @@ export default function DashboardPage() {
 
               <div className="flex space-x-3 pt-2">
                 <button type="button" onClick={() => setShowScheduleModal(false)} className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-700 font-bold">Batal</button>
-                <button type="submit" className="flex-1 py-3 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-md">Simpan Cron</button>
+                <button type="submit" className="flex-1 py-3 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-md">Simpan Jadwal</button>
               </div>
             </form>
           </div>

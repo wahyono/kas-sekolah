@@ -1,0 +1,606 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Kas Sekolah Enterprise API",
+    "description": "School Cash Management & Double-Entry Financial Ledger Service API Specifications (Laravel 10 Edition)",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8081",
+      "description": "Local Development Server"
+    },
+    {
+      "url": "/",
+      "description": "Current Server Host"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Sanctum Token"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    { "name": "Authentication", "description": "User Login, Registration & Profile" },
+    { "name": "Schools", "description": "School Tenants & Organizations" },
+    { "name": "Academic Years", "description": "Academic Calendar & Current Term" },
+    { "name": "Classes", "description": "Classrooms & Student Cohorts" },
+    { "name": "Users & Students", "description": "User Management & Role Assignment" },
+    { "name": "Cash Accounts", "description": "Classroom Cash Wallets & Ledgers" },
+    { "name": "Student Dues & Billings", "description": "Fee Schedules & Student Invoices" },
+    { "name": "Transactions & Expenses", "description": "Cash In/Out, Expense Approvals & Mutasi" },
+    { "name": "Notifications", "description": "Email Notification & Reports" }
+  ],
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login user to obtain access token",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "example": "admin@sekolah.sch.id" },
+                  "password": { "type": "string", "example": "••••••••" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Successfully authenticated with access token" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new user or student",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["schoolId", "name", "email", "password"],
+                "properties": {
+                  "schoolId": { "type": "string", "format": "uuid" },
+                  "name": { "type": "string", "example": "Budi Santoso" },
+                  "email": { "type": "string", "example": "budi@sdn08pagi.sch.id" },
+                  "password": { "type": "string", "example": "••••••••" },
+                  "role": { "type": "string", "enum": ["SUPER_ADMIN", "ADMIN", "TREASURER", "KORLAS", "STUDENT", "PARENT"], "default": "STUDENT" },
+                  "classId": { "type": "string", "format": "uuid", "description": "Class to auto-enroll (for students)" },
+                  "nis": { "type": "string", "example": "20260505" },
+                  "nisn": { "type": "string", "example": "0059876543" },
+                  "gender": { "type": "string", "enum": ["MALE", "FEMALE"] },
+                  "religion": { "type": "string", "example": "ISLAM" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User successfully created" }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get authenticated user profile",
+        "responses": {
+          "200": { "description": "Current user profile" },
+          "401": { "description": "Unauthenticated" }
+        }
+      }
+    },
+    "/api/v1/schools": {
+      "get": {
+        "tags": ["Schools"],
+        "summary": "List all registered schools",
+        "security": [],
+        "responses": {
+          "200": { "description": "List of schools" }
+        }
+      },
+      "post": {
+        "tags": ["Schools"],
+        "summary": "Create a new school tenant",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "code"],
+                "properties": {
+                  "name": { "type": "string", "example": "SMP Negeri 01 Mandiri" },
+                  "code": { "type": "string", "example": "SMPN01" },
+                  "address": { "type": "string", "example": "Jl. Merdeka No. 10" },
+                  "phone": { "type": "string", "example": "021-5551234" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "School created" }
+        }
+      }
+    },
+    "/api/v1/schools/{id}": {
+      "get": {
+        "tags": ["Schools"],
+        "summary": "Get school detail with classes and academic years",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "School detail" }
+        }
+      },
+      "put": {
+        "tags": ["Schools"],
+        "summary": "Update school info",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "address": { "type": "string" },
+                  "phone": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "School updated" }
+        }
+      },
+      "delete": {
+        "tags": ["Schools"],
+        "summary": "Delete a school tenant",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "School deleted" }
+        }
+      }
+    },
+    "/api/v1/academic-years": {
+      "get": {
+        "tags": ["Academic Years"],
+        "summary": "List academic years",
+        "parameters": [
+          { "name": "schoolId", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of academic years" }
+        }
+      },
+      "post": {
+        "tags": ["Academic Years"],
+        "summary": "Create an academic year",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["schoolId", "year"],
+                "properties": {
+                  "schoolId": { "type": "string" },
+                  "year": { "type": "string", "example": "2026/2027" },
+                  "isCurrent": { "type": "boolean", "default": false }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Academic year created" }
+        }
+      }
+    },
+    "/api/v1/academic-years/{id}/current": {
+      "patch": {
+        "tags": ["Academic Years"],
+        "summary": "Set academic year as active/current",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Academic year activated" }
+        }
+      }
+    },
+    "/api/v1/classes": {
+      "get": {
+        "tags": ["Classes"],
+        "summary": "List classes with cash accounts and academic years",
+        "parameters": [
+          { "name": "schoolId", "in": "query", "schema": { "type": "string" } },
+          { "name": "academicYearId", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of classes" }
+        }
+      },
+      "post": {
+        "tags": ["Classes"],
+        "summary": "Create a class and automatically initialize its Cash Account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["academicYearId", "name"],
+                "properties": {
+                  "academicYearId": { "type": "string" },
+                  "name": { "type": "string", "example": "Kelas 5-B" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Class created" }
+        }
+      }
+    },
+    "/api/v1/classes/{id}": {
+      "get": {
+        "tags": ["Classes"],
+        "summary": "Get class detail with students and cash account",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Class detail" }
+        }
+      }
+    },
+    "/api/v1/cash-accounts/class/{classId}": {
+      "get": {
+        "tags": ["Cash Accounts"],
+        "summary": "Get cash account for a specific class",
+        "parameters": [
+          { "name": "classId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Cash account info" }
+        }
+      }
+    },
+    "/api/v1/cash-accounts/{id}": {
+      "get": {
+        "tags": ["Cash Accounts"],
+        "summary": "Get cash account by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Cash account detail" }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": ["Users & Students"],
+        "summary": "List users and students with school filter",
+        "parameters": [
+          { "name": "schoolId", "in": "query", "schema": { "type": "string" } },
+          { "name": "role", "in": "query", "schema": { "type": "string" } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of users" }
+        }
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "tags": ["Users & Students"],
+        "summary": "Get user by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "User detail" }
+        }
+      },
+      "put": {
+        "tags": ["Users & Students"],
+        "summary": "Update user or student profile",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User updated" }
+        }
+      },
+      "delete": {
+        "tags": ["Users & Students"],
+        "summary": "Delete user",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "User deleted" }
+        }
+      }
+    },
+    "/api/v1/billings": {
+      "get": {
+        "tags": ["Student Dues & Billings"],
+        "summary": "List student billings and invoices",
+        "parameters": [
+          { "name": "schoolId", "in": "query", "schema": { "type": "string" } },
+          { "name": "studentId", "in": "query", "schema": { "type": "string" } },
+          { "name": "classId", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of billings" }
+        }
+      }
+    },
+    "/api/v1/billings/school/{schoolId}": {
+      "get": {
+        "tags": ["Student Dues & Billings"],
+        "summary": "Get all billings for a school (NestJS compatible)",
+        "parameters": [
+          { "name": "schoolId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "School billings" }
+        }
+      }
+    },
+    "/api/v1/billings/student/{studentId}": {
+      "get": {
+        "tags": ["Student Dues & Billings"],
+        "summary": "Get all billings for a student",
+        "parameters": [
+          { "name": "studentId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Student billings" }
+        }
+      }
+    },
+    "/api/v1/billings/dues-scheme": {
+      "post": {
+        "tags": ["Student Dues & Billings"],
+        "summary": "Create dues scheme and auto-generate billings for enrolled students",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["cashAccountId", "title", "amount", "dueDate", "studentIds"],
+                "properties": {
+                  "cashAccountId": { "type": "string" },
+                  "title": { "type": "string", "example": "Iuran Kas Bulanan Oktober 2026" },
+                  "amount": { "type": "number", "example": 25000 },
+                  "dueDate": { "type": "string", "format": "date", "example": "2026-10-25" },
+                  "studentIds": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Scheme created and billings generated" }
+        }
+      }
+    },
+    "/api/v1/billings/{id}/pay": {
+      "post": {
+        "tags": ["Student Dues & Billings"],
+        "summary": "Record a payment against a student billing",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount", "createdBy"],
+                "properties": {
+                  "amount": { "type": "number", "example": 20000 },
+                  "createdBy": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Payment recorded, billing updated, cash balance incremented" }
+        }
+      }
+    },
+    "/api/v1/transactions": {
+      "get": {
+        "tags": ["Transactions & Expenses"],
+        "summary": "List transactions / cash ledger mutations",
+        "parameters": [
+          { "name": "schoolId", "in": "query", "schema": { "type": "string" } },
+          { "name": "cashAccountId", "in": "query", "schema": { "type": "string" } },
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["INCOME", "EXPENSE"] } }
+        ],
+        "responses": {
+          "200": { "description": "List of transactions" }
+        }
+      },
+      "post": {
+        "tags": ["Transactions & Expenses"],
+        "summary": "Record a direct income or expense transaction",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["cashAccountId", "type", "amount", "category", "description", "createdBy"],
+                "properties": {
+                  "cashAccountId": { "type": "string" },
+                  "type": { "type": "string", "enum": ["INCOME", "EXPENSE"] },
+                  "amount": { "type": "number", "example": 100000 },
+                  "category": { "type": "string", "example": "Donasi" },
+                  "description": { "type": "string", "example": "Sumbangan Orang Tua Murid" },
+                  "createdBy": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Transaction recorded and cash account balance adjusted" }
+        }
+      }
+    },
+    "/api/v1/transactions/school/{schoolId}": {
+      "get": {
+        "tags": ["Transactions & Expenses"],
+        "summary": "Get all transactions for a school",
+        "parameters": [
+          { "name": "schoolId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "School transactions" }
+        }
+      }
+    },
+    "/api/v1/expenses": {
+      "get": {
+        "tags": ["Transactions & Expenses"],
+        "summary": "List expense requests with approval status",
+        "parameters": [
+          { "name": "schoolId", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] } }
+        ],
+        "responses": {
+          "200": { "description": "List of expenses" }
+        }
+      },
+      "post": {
+        "tags": ["Transactions & Expenses"],
+        "summary": "Submit a new expense request to Korlas / Admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["cashAccountId", "title", "amount", "description", "requestedBy"],
+                "properties": {
+                  "cashAccountId": { "type": "string" },
+                  "title": { "type": "string", "example": "Pembelian Buku Tamu Kelas" },
+                  "amount": { "type": "number", "example": 35000 },
+                  "description": { "type": "string", "example": "Buku catatan absensi dan tamu wali murid" },
+                  "requestedBy": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Expense submitted with PENDING status" }
+        }
+      }
+    },
+    "/api/v1/expenses/{id}/approval": {
+      "patch": {
+        "tags": ["Transactions & Expenses"],
+        "summary": "Approve or reject an expense request (Korlas / Admin)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status", "approvedBy"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["APPROVED", "REJECTED"] },
+                  "approvedBy": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Approval status updated. If APPROVED, cash balance is debited and transaction created." }
+        }
+      }
+    },
+    "/api/v1/notifications/email-report": {
+      "post": {
+        "tags": ["Notifications"],
+        "summary": "Queue or send email financial report",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipientEmail": { "type": "string", "example": "komite@sekolah.sch.id" },
+                  "subject": { "type": "string", "example": "Laporan Kas Bulanan" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Report queued for email delivery" }
+        }
+      }
+    }
+  }
+}

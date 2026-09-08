@@ -45,3 +45,14 @@ pnpm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Archives and Bundles
+*.zip
+*.tar.gz
+*.tgz
+
+# Temporary deployment and sensitive scripts/dumps
+push_db.php
+diagnose.php
+kas_sekolah_export.sql
+kas_sekolah_mariadb.sql

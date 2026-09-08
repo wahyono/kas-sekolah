@@ -96,7 +96,15 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password credentials');
     }
 
-    const isPasswordValid = await argon2.verify(user.passwordHash, dto.password);
+    let isPasswordValid = false;
+    try {
+      if (user.passwordHash) {
+        isPasswordValid = await argon2.verify(user.passwordHash, dto.password);
+      }
+    } catch (e) {
+      isPasswordValid = false;
+    }
+
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid email or password credentials');
     }
