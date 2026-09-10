@@ -488,21 +488,29 @@
                     <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                             <div>
-                                <h3 class="text-base font-bold text-slate-900">Laporan Iuran & Tagihan Siswa</h3>
-                                <p class="text-xs text-slate-500">Status kelunasan iuran wajib dan kegiatan kelas</p>
+                                <h3 class="text-base font-bold text-slate-900" x-text="'Laporan Kelunasan Iuran Siswa (' + (currentUser?.role === 'KORLAS' ? (classes.find(c => c.id === currentUser?.managedClass)?.name || 'Kelas Anda') : 'Semua Kelas') + ')'"></h3>
+                                <p class="text-xs text-slate-500">Rekapitulasi tagihan per periode bulan dan history setoran siswa</p>
                             </div>
                             <div class="flex flex-wrap items-center gap-2">
-                                <select x-model="reportStatusFilter" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold outline-none">
-                                    <option value="ALL">Semua Status</option>
-                                    <option value="PAID">Sudah Lunas</option>
-                                    <option value="PENDING">Belum Bayar</option>
+                                <select x-model="reportPeriodFilter" class="bg-slate-100 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-bold outline-none">
+                                    <option value="ALL">Semua Periode Bulan</option>
+                                    <template x-for="p in availablePeriods" :key="p">
+                                        <option :value="p" x-text="'Periode: ' + p"></option>
+                                    </template>
                                 </select>
-                                <button type="button" @click="openPdfEmailModal('REPORTS')" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-300 transition flex items-center gap-1.5 shadow-xs">
-                                    <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                                    <span>Cetak PDF & Kirim Email</span>
+
+                                <div class="flex bg-slate-100 p-1 rounded-2xl text-xs font-bold">
+                                    <button type="button" @click="reportStatusFilter = 'ALL'" :class="reportStatusFilter === 'ALL' ? 'bg-white font-black shadow-xs' : 'text-slate-600'" class="px-3 py-1.5 rounded-xl transition">Semua</button>
+                                    <button type="button" @click="reportStatusFilter = 'PAID'" :class="reportStatusFilter === 'PAID' ? 'bg-emerald-600 text-white font-black shadow-xs' : 'text-slate-600'" class="px-3 py-1.5 rounded-xl transition">Lunas</button>
+                                    <button type="button" @click="reportStatusFilter = 'PENDING'" :class="reportStatusFilter === 'PENDING' ? 'bg-amber-600 text-white font-black shadow-xs' : 'text-slate-600'" class="px-3 py-1.5 rounded-xl transition">Belum Lunas</button>
+                                </div>
+
+                                <button type="button" @click="openPdfEmailModal('REPORTS')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                    <span>📄 Export PDF & Kirim Email</span>
                                 </button>
                                 <template x-if="['SUPER_ADMIN', 'ADMIN', 'TREASURER', 'KORLAS'].includes(currentUser?.role)">
-                                    <button type="button" @click="openSchemeModal()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-xs">
+                                    <button type="button" @click="openSchemeModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-2xl text-xs font-bold shadow-md transition">
                                         + Buat Tagihan
                                     </button>
                                 </template>
@@ -511,32 +519,34 @@
 
                         <!-- Billings Table -->
                         <div class="overflow-x-auto mt-4">
-                            <table class="w-full text-left text-xs">
-                                <thead class="bg-slate-50 text-slate-500 uppercase font-bold text-[10px]">
+                            <table class="w-full text-left text-xs text-slate-700">
+                                <thead class="bg-slate-100 uppercase font-bold text-[10px] text-slate-500">
                                     <tr>
                                         <th class="p-3">Nama Siswa</th>
-                                        <th class="p-3">Program Iuran</th>
-                                        <th class="p-3">Jatuh Tempo</th>
-                                        <th class="p-3">Jumlah</th>
-                                        <th class="p-3">Status</th>
+                                        <th class="p-3">Kelas</th>
+                                        <th class="p-3">Periode</th>
+                                        <th class="p-3 text-right">Tagihan</th>
+                                        <th class="p-3 text-center">Status</th>
+                                        <th class="p-3">Waktu Bayar</th>
                                         <th class="p-3 text-center">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
                                     <template x-for="b in filteredReportBillings" :key="b.id">
                                         <tr class="hover:bg-slate-50/50">
-                                            <td class="p-3 font-bold text-slate-900" x-text="b.student?.name || 'Siswa'"></td>
-                                            <td class="p-3 font-medium text-slate-700" x-text="b.dues_scheme?.title || 'Iuran Kas'"></td>
-                                            <td class="p-3 font-mono text-slate-500" x-text="formatDate(b.due_date)"></td>
-                                            <td class="p-3 font-bold text-slate-900" x-text="formatCurrency(b.amount_due)"></td>
-                                            <td class="p-3">
+                                            <td class="p-3 font-bold text-slate-900" x-text="b.studentName || b.student?.name || 'Siswa'"></td>
+                                            <td class="p-3 font-bold text-indigo-600" x-text="b.className || 'Kelas 5-A'"></td>
+                                            <td class="p-3 font-semibold text-slate-700" x-text="b.period || 'Periode'"></td>
+                                            <td class="p-3 text-right font-black" x-text="formatCurrency(b.amount_due)"></td>
+                                            <td class="p-3 text-center">
                                                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
                                                       :class="b.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
                                                       x-text="b.status === 'PAID' ? 'LUNAS' : 'BELUM LUNAS'"></span>
                                             </td>
+                                            <td class="p-3 text-slate-500" x-text="b.paidAt || 'Belum ada setoran'"></td>
                                             <td class="p-3 text-center">
                                                 <template x-if="b.status !== 'PAID' && ['SUPER_ADMIN', 'ADMIN', 'TREASURER'].includes(currentUser?.role)">
-                                                    <button type="button" @click="openPayModal(b)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold shadow-xs">
+                                                    <button type="button" @click="openPayModal(b)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold shadow-xs transition">
                                                         Catat Pelunasan
                                                     </button>
                                                 </template>
@@ -548,6 +558,14 @@
                                     </template>
                                 </tbody>
                             </table>
+
+                            <template x-if="filteredReportBillings.length === 0">
+                                <div class="py-12 text-center text-slate-400 text-xs">
+                                    <p class="text-3xl mb-2">📋</p>
+                                    <p class="font-bold text-slate-700">Belum ada data tagihan iuran pada filter ini.</p>
+                                    <p class="text-[11px] text-slate-400 mt-1">Klik tombol "+ Buat Tagihan" di atas untuk menerbitkan tagihan bagi setiap siswa.</p>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -968,20 +986,34 @@
             <!-- ==================== MODAL BUAT SKEMA IURAN ==================== -->
             <div x-show="showSchemeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-cloak>
                 <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100" @click.away="showSchemeModal = false">
-                    <h3 class="text-base font-bold text-slate-800 mb-1">Terbitkan Tagihan Iuran Baru</h3>
-                    <p class="text-xs text-slate-500 mb-4">Tagihan otomatis didistribusikan ke siswa di kelas aktif.</p>
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
+                        <h3 class="text-base font-bold text-slate-800">Terbitkan Tagihan Iuran Siswa</h3>
+                        <button type="button" @click="showSchemeModal = false" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4">Tagihan akan otomatis dibuat untuk setiap siswa pada kelas yang dipilih.</p>
                     <form @submit.prevent="submitCreateScheme()">
                         <div class="mb-3">
                             <label class="block text-xs font-bold text-slate-600 mb-1">Judul / Program Iuran</label>
-                            <input type="text" x-model="schemeTitle" required placeholder="Contoh: Iuran Kas Bulan November" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-600">
+                            <input type="text" x-model="schemeTitle" required placeholder="Contoh: Iuran Kas September 2026" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-600">
                         </div>
                         <div class="mb-3">
-                            <label class="block text-xs font-bold text-slate-600 mb-1">Nominal per Siswa (Rp)</label>
-                            <input type="number" x-model.number="schemeAmount" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-600 font-bold">
+                            <label class="block text-xs font-bold text-slate-600 mb-1">Pilih Kelas</label>
+                            <select x-model="schemeClassId" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-600 font-bold bg-white">
+                                <option value="ALL">Semua Kelas (Seluruh Siswa)</option>
+                                <template x-for="c in classes" :key="c.id">
+                                    <option :value="c.id" x-text="c.name"></option>
+                                </template>
+                            </select>
                         </div>
-                        <div class="mb-4">
-                            <label class="block text-xs font-bold text-slate-600 mb-1">Batas Waktu (Jatuh Tempo)</label>
-                            <input type="date" x-model="schemeDueDate" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-600">
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Nominal per Siswa (Rp)</label>
+                                <input type="number" x-model.number="schemeAmount" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-600 font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Jatuh Tempo</label>
+                                <input type="date" x-model="schemeDueDate" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-600">
+                            </div>
                         </div>
                         <div class="flex items-center space-x-2">
                             <button type="button" @click="showSchemeModal = false" class="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200 transition">Batal</button>
@@ -1230,6 +1262,7 @@
 
                 // Filter States
                 reportStatusFilter: 'ALL',
+                reportPeriodFilter: 'ALL',
 
                 // Modal States
                 showSchoolListModal: false,
@@ -1265,9 +1298,10 @@
                 payAmount: 0,
 
                 showSchemeModal: false,
+                schemeClassId: 'ALL',
                 schemeTitle: '',
-                schemeAmount: 20000,
-                schemeDueDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                schemeAmount: 25000,
+                schemeDueDate: '',
 
                 showIncomeModal: false,
                 incomeCategory: 'Donasi',
@@ -1356,8 +1390,10 @@
 
                 get scopedBillings() {
                     return this.billings.filter(b => {
+                        if (this.activeSchoolId && b.school_id && b.school_id !== this.activeSchoolId) return false;
                         if (this.currentUser?.role === 'KORLAS' && this.currentUser?.managedClass) {
-                            return b.student?.enrollments?.[0]?.class_id === this.currentUser.managedClass;
+                            const cId = b.classId || b.student?.enrollments?.[0]?.class_id;
+                            return cId === this.currentUser.managedClass;
                         }
                         if (this.currentUser?.role === 'STUDENT') {
                             return b.student_id === this.currentUser.id;
@@ -1379,8 +1415,19 @@
                     });
                 },
 
+                get availablePeriods() {
+                    const periods = new Set();
+                    this.scopedBillings.forEach(b => {
+                        if (b.period) periods.add(b.period);
+                    });
+                    return Array.from(periods);
+                },
+
                 get filteredReportBillings() {
                     let list = this.scopedBillings;
+                    if (this.reportPeriodFilter && this.reportPeriodFilter !== 'ALL') {
+                        list = list.filter(b => b.period === this.reportPeriodFilter);
+                    }
                     if (this.reportStatusFilter !== 'ALL') {
                         list = list.filter(b => b.status === this.reportStatusFilter);
                     }
@@ -1520,9 +1567,12 @@
                         this.schools = await res.json();
 
                         if (this.currentUser?.role === 'SUPER_ADMIN') {
-                            this.activeSchoolId = this.schools[0]?.id || '';
+                            if (!this.activeSchoolId) {
+                                const defaultSchool = this.schools.find(s => s.code !== 'sistemkas') || this.schools[0];
+                                this.activeSchoolId = defaultSchool?.id || '';
+                            }
                         } else {
-                            this.activeSchoolId = this.currentUser?.schoolId || this.schools[0]?.id || '';
+                            this.activeSchoolId = this.currentUser?.schoolId || this.currentUser?.school_id || this.schools[0]?.id || '';
                         }
                         this.changeSchool();
                     } catch (e) {
@@ -1545,11 +1595,15 @@
 
                 async fetchClasses() {
                     try {
-                        const res = await this.apiFetch('/api/v1/classes');
+                        const schoolParam = this.activeSchoolId ? `?schoolId=${this.activeSchoolId}` : '';
+                        const res = await this.apiFetch(`/api/v1/classes${schoolParam}`);
                         if (res.ok) {
                             this.classes = await res.json();
                             if (this.classes.length > 0 && !this.cronClassId) {
                                 this.cronClassId = this.classes[0].id;
+                            }
+                            if (this.classes.length > 0 && (!this.schemeClassId || this.schemeClassId === 'ALL')) {
+                                this.schemeClassId = 'ALL';
                             }
                         }
                     } catch (e) {}
@@ -1575,9 +1629,45 @@
 
                 async fetchBillings() {
                     try {
-                        const res = await this.apiFetch(`/api/v1/billings?schoolId=${this.activeSchoolId}`);
-                        if (res.ok) this.billings = await res.json();
-                    } catch (e) {}
+                        const schoolParam = this.activeSchoolId ? `?schoolId=${this.activeSchoolId}` : '';
+                        const res = await this.apiFetch(`/api/v1/billings${schoolParam}`);
+                        if (res.ok) {
+                            const raw = await res.json();
+                            this.billings = raw.map(b => {
+                                const studentName = b.student?.name || 'Unknown Student';
+                                const className = b.student?.enrollments?.[0]?.class?.name || (this.classes.find(c => c.id === b.student?.managed_class)?.name) || 'Kelas 5-A';
+                                const classId = b.student?.enrollments?.[0]?.class_id || b.student?.managed_class;
+                                const scheme = b.dues_scheme || b.duesScheme;
+                                const schemeTitle = scheme?.title || 'Iuran Kas';
+                                const dueDate = b.due_date || scheme?.due_date;
+                                const period = new Date(dueDate || Date.now()).toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+                                const amountDue = parseFloat(b.amount_due ?? b.amountDue ?? 0);
+                                const amountPaid = parseFloat(b.amount_paid ?? b.amountPaid ?? 0);
+                                const isPaid = b.status === 'PAID';
+                                const paidAt = isPaid ? (b.updated_at ? new Date(b.updated_at).toLocaleString('id-ID') : 'Sudah Lunas') : 'Belum ada setoran';
+
+                                return {
+                                    id: b.id,
+                                    school_id: b.student?.school_id || this.activeSchoolId,
+                                    student_id: b.student_id,
+                                    student: b.student,
+                                    studentName: studentName,
+                                    className: className,
+                                    classId: classId,
+                                    dues_scheme: scheme,
+                                    schemeTitle: schemeTitle,
+                                    due_date: dueDate,
+                                    period: period,
+                                    amount_due: amountDue,
+                                    amount_paid: amountPaid,
+                                    status: b.status,
+                                    paidAt: paidAt,
+                                };
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Failed to fetch billings', e);
+                    }
                 },
 
                 async fetchTransactions() {
@@ -1892,33 +1982,56 @@
                 openSchemeModal() {
                     this.schemeTitle = 'Iuran Kas ' + new Date().toLocaleString('id-ID', { month: 'long', year: 'numeric' });
                     this.schemeAmount = 25000;
+                    const nextMonth = new Date();
+                    nextMonth.setMonth(nextMonth.getMonth() + 1);
+                    this.schemeDueDate = nextMonth.toISOString().split('T')[0];
+
+                    if (this.currentUser?.role === 'KORLAS' && this.currentUser?.managedClass) {
+                        this.schemeClassId = this.currentUser.managedClass;
+                    } else if (this.classes.length > 0) {
+                        this.schemeClassId = this.schemeClassId || 'ALL';
+                    } else {
+                        this.schemeClassId = 'ALL';
+                    }
                     this.showSchemeModal = true;
                 },
 
                 async submitCreateScheme() {
-                    if (!this.classes[0]) return this.showToast('Buat kelas terlebih dahulu.', 'error');
+                    if (!this.schemeTitle) return this.showToast('Judul tagihan wajib diisi.', 'error');
+                    if (!this.schemeAmount || this.schemeAmount <= 0) return this.showToast('Nominal tagihan harus lebih dari 0.', 'error');
+                    if (!this.schemeDueDate) return this.showToast('Tanggal jatuh tempo wajib diisi.', 'error');
+
                     try {
-                        const cashRes = await this.apiFetch(`/api/v1/cash-accounts/class/${this.classes[0].id}`);
-                        const cashAccs = await cashRes.json();
-                        const cashAccountId = Array.isArray(cashAccs) ? cashAccs[0]?.id : cashAccs?.id;
-                        if (!cashAccountId) return this.showToast('Akun kas belum ada.', 'error');
+                        const payload = {
+                            schoolId: this.activeSchoolId,
+                            classId: this.schemeClassId || 'ALL',
+                            title: this.schemeTitle,
+                            amount: this.schemeAmount,
+                            dueDate: this.schemeDueDate
+                        };
+
+                        if (this.schemeClassId && this.schemeClassId !== 'ALL') {
+                            const cashRes = await this.apiFetch(`/api/v1/cash-accounts/class/${this.schemeClassId}`);
+                            if (cashRes.ok) {
+                                const cashAccs = await cashRes.json();
+                                const caId = Array.isArray(cashAccs) ? cashAccs[0]?.id : cashAccs?.id;
+                                if (caId) payload.cashAccountId = caId;
+                            }
+                        }
 
                         const res = await this.apiFetch('/api/v1/billings/dues-scheme', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                cashAccountId: cashAccountId,
-                                title: this.schemeTitle,
-                                amount: this.schemeAmount,
-                                dueDate: this.schemeDueDate
-                            })
+                            body: JSON.stringify(payload)
                         });
-                        if (!res.ok) throw new Error('Gagal menerbitkan tagihan');
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.message || 'Gagal menerbitkan tagihan');
+
                         this.showSchemeModal = false;
                         await this.fetchBillings();
-                        this.showToast('✓ Tagihan iuran berhasil diterbitkan!');
+                        this.showToast(`⏰ Tagihan '${this.schemeTitle}' berhasil dibuat untuk ${data.totalBillingsGenerated || 0} siswa!`);
                     } catch (e) {
-                        this.showToast(e.message, 'error');
+                        this.showToast(e.message || 'Gagal menerbitkan tagihan', 'error');
                     }
                 },
 

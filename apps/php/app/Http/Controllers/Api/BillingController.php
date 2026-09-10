@@ -9,6 +9,9 @@ use App\Models\DuesScheme;
 use App\Models\StudentBilling;
 use App\Models\CashAccount;
 use App\Models\Transaction;
+use App\Models\ClassModel;
+use App\Models\ClassEnrollment;
+use App\Models\User;
 
 class BillingController extends Controller
 {
@@ -16,9 +19,13 @@ class BillingController extends Controller
     {
         $query = StudentBilling::with(['duesScheme.cashAccount', 'student.enrollments.class']);
 
-        if ($request->filled('schoolId')) {
-            $query->whereHas('student', function ($q) use ($request) {
-                $q->where('school_id', $request->schoolId);
+        if ($request->filled('schoolId') && $request->schoolId !== 'ALL') {
+            $query->where(function ($sq) use ($request) {
+                $sq->whereHas('student', function ($q) use ($request) {
+                    $q->where('school_id', $request->schoolId);
+                })->orWhereHas('duesScheme.cashAccount.class.academicYear', function ($q) use ($request) {
+                    $q->where('school_id', $request->schoolId);
+                });
             });
         }
 
@@ -88,7 +95,9 @@ class BillingController extends Controller
     public function createDuesScheme(Request $request)
     {
         $validated = $request->validate([
-            'cashAccountId' => 'required|string',
+            'cashAccountId' => 'nullable|string',
+            'classId' => 'nullable|string',
+            'schoolId' => 'nullable|string',
             'title' => 'required|string',
             'amount' => 'required|numeric|min:1',
             'dueDate' => 'required|date',
@@ -96,26 +105,91 @@ class BillingController extends Controller
         ]);
 
         return DB::transaction(function () use ($validated, $request) {
+            $classId = $request->input('classId');
+            $schoolId = $request->input('schoolId');
+            $cashAccountId = $request->input('cashAccountId');
+
+            // 1. Resolve target class and cash account
+            $targetClass = null;
+            if ($cashAccountId) {
+                $cashAccount = CashAccount::with(['class.enrollments', 'classModel.enrollments'])->find($cashAccountId);
+                if ($cashAccount) {
+                    $targetClass = $cashAccount->class ?? $cashAccount->classModel;
+                }
+            }
+
+            if (!$cashAccountId && $classId && $classId !== 'ALL') {
+                $targetClass = ClassModel::with(['enrollments', 'academicYear'])->find($classId);
+                if ($targetClass) {
+                    $cashAccount = CashAccount::firstOrCreate(
+                        ['class_id' => $targetClass->id],
+                        ['name' => 'Kas Utama ' . $targetClass->name, 'currency' => 'IDR', 'current_balance' => 0]
+                    );
+                    $cashAccountId = $cashAccount->id;
+                }
+            }
+
+            // Fallback cash account if not found
+            if (!$cashAccountId) {
+                $firstClass = null;
+                if ($schoolId) {
+                    $firstClass = ClassModel::whereHas('academicYear', function ($q) use ($schoolId) {
+                        $q->where('school_id', $schoolId);
+                    })->first();
+                }
+                if (!$firstClass) {
+                    $firstClass = ClassModel::first();
+                }
+
+                if ($firstClass) {
+                    $cashAccount = CashAccount::firstOrCreate(
+                        ['class_id' => $firstClass->id],
+                        ['name' => 'Kas Utama ' . $firstClass->name, 'currency' => 'IDR', 'current_balance' => 0]
+                    );
+                    $cashAccountId = $cashAccount->id;
+                    if (!$targetClass) {
+                        $targetClass = $firstClass;
+                    }
+                }
+            }
+
+            if (!$cashAccountId) {
+                return response()->json(['message' => 'Akun kas kelas belum tersedia. Silakan buat kelas terlebih dahulu.'], 422);
+            }
+
+            // 2. Create the Dues Scheme
             $scheme = DuesScheme::create([
-                'cash_account_id' => $validated['cashAccountId'],
+                'cash_account_id' => $cashAccountId,
                 'title' => $validated['title'],
                 'amount' => $validated['amount'],
                 'due_date' => $validated['dueDate'],
             ]);
 
+            // 3. Resolve student IDs
             $studentIds = $request->input('studentIds');
             if (empty($studentIds)) {
-                $cashAccount = CashAccount::with(['class.enrollments', 'classModel.enrollments'])->findOrFail($validated['cashAccountId']);
-                $targetClass = $cashAccount->class ?? $cashAccount->classModel;
-                if ($targetClass && $targetClass->enrollments) {
-                    $studentIds = $targetClass->enrollments->pluck('student_id')->toArray();
+                if ($targetClass && $classId && $classId !== 'ALL') {
+                    // Specific class enrollments
+                    $studentIds = $targetClass->enrollments ? $targetClass->enrollments->pluck('student_id')->toArray() : [];
+                    if (empty($studentIds)) {
+                        $studentIds = User::where('role', 'STUDENT')->where('managed_class', $targetClass->id)->pluck('id')->toArray();
+                    }
+                    if (empty($studentIds) && $targetClass->academicYear?->school_id) {
+                        $studentIds = User::where('role', 'STUDENT')->where('school_id', $targetClass->academicYear->school_id)->pluck('id')->toArray();
+                    }
                 } else {
-                    $studentIds = [];
+                    // All classes or whole school
+                    $resolvedSchoolId = $schoolId ?? ($targetClass?->academicYear?->school_id) ?? auth()->user()?->school_id;
+                    $studentQuery = User::where('role', 'STUDENT');
+                    if ($resolvedSchoolId && $resolvedSchoolId !== 'ALL') {
+                        $studentQuery->where('school_id', $resolvedSchoolId);
+                    }
+                    $studentIds = $studentQuery->pluck('id')->toArray();
                 }
             }
 
             $billings = [];
-            foreach ($studentIds as $studentId) {
+            foreach (array_unique($studentIds) as $studentId) {
                 $billings[] = StudentBilling::create([
                     'dues_scheme_id' => $scheme->id,
                     'student_id' => $studentId,
@@ -127,7 +201,7 @@ class BillingController extends Controller
             }
 
             return response()->json([
-                'message' => 'Dues scheme created successfully',
+                'message' => "Tagihan '{$scheme->title}' berhasil dibuat untuk " . count($billings) . " siswa!",
                 'scheme' => $scheme,
                 'totalBillingsGenerated' => count($billings),
             ], 201);
