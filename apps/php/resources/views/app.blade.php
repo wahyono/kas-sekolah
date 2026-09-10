@@ -261,25 +261,33 @@
                         </div>
 
                         <!-- Banner Action Buttons -->
-                        <div class="flex flex-wrap gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
                             <!-- Super Admin: Foto/Video Header Login -->
                             <template x-if="currentUser?.role === 'SUPER_ADMIN'">
-                                <button type="button" @click="openMediaModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-2xl font-bold text-xs shadow-md transition flex items-center gap-1.5">
+                                <button type="button" @click="openMediaModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-2xl font-bold text-xs shadow-md transition flex items-center gap-1.5">
                                     <span>🖼️ Ganti Foto/Video Header Login</span>
                                 </button>
                             </template>
 
-                            <!-- Bendahara, Admin & Korlas Actions: Penjadwalan Iuran -->
+                            <!-- Shortcuts: Buat Tagihan, Tagihan Spesial, Penjadwalan Iuran, Catat Mutasi Kas -->
                             <template x-if="['SUPER_ADMIN', 'ADMIN', 'TREASURER', 'KORLAS'].includes(currentUser?.role)">
-                                <button type="button" @click="openScheduleModal()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-3 rounded-2xl font-bold text-xs shadow-md transition flex items-center gap-1.5">
-                                    <span>📅 Penjadwalan Iuran</span>
-                                </button>
-                            </template>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <button type="button" @click="openSchemeModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2.5 rounded-2xl font-bold text-xs shadow-md transition flex items-center gap-1.5" title="Buat tagihan seragam untuk satu atau seluruh kelas">
+                                        <span>+ Buat Tagihan</span>
+                                    </button>
 
-                            <template x-if="['SUPER_ADMIN', 'ADMIN', 'TREASURER', 'KORLAS'].includes(currentUser?.role)">
-                                <button type="button" @click="openIncomeModal()" class="gradient-button-school px-4 py-3 rounded-2xl font-bold text-xs shadow-md transition flex items-center gap-1.5">
-                                    <span>+ Catat Mutasi Kas</span>
-                                </button>
+                                    <button type="button" @click="openSpecialSchemeModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-2.5 rounded-2xl font-bold text-xs shadow-md transition flex items-center gap-1.5" title="Buat tagihan khusus dengan nominal berbeda-beda per siswa sesuai layanan yang diambil">
+                                        <span>⭐ Tagihan Spesial</span>
+                                    </button>
+
+                                    <button type="button" @click="openScheduleModal()" class="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2.5 rounded-2xl font-bold text-xs shadow-md transition flex items-center gap-1.5" title="Penjadwalan Iuran Rutin Otomatis">
+                                        <span>📅 Penjadwalan Iuran</span>
+                                    </button>
+
+                                    <button type="button" @click="openIncomeModal()" class="gradient-button-school px-3.5 py-2.5 rounded-2xl font-bold text-xs shadow-md transition flex items-center gap-1.5" title="Catat Mutasi Kas Masuk / Keluar">
+                                        <span>+ Catat Mutasi Kas</span>
+                                    </button>
+                                </div>
                             </template>
                         </div>
                     </div>
@@ -519,12 +527,6 @@
                                         </button>
                                         <button type="button" @click="openSpecialSchemeModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1" title="Buat tagihan khusus dengan nominal berbeda-beda per siswa sesuai layanan yang diambil">
                                             <span>⭐ Tagihan Spesial</span>
-                                        </button>
-                                        <button type="button" @click="openScheduleModal()" class="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1" title="Penjadwalan Iuran Rutin Otomatis">
-                                            <span>📅 Penjadwalan Iuran</span>
-                                        </button>
-                                        <button type="button" @click="openIncomeModal()" class="gradient-button-school px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1" title="Catat Mutasi Kas Masuk / Keluar">
-                                            <span>+ Mutasi Kas</span>
                                         </button>
                                     </div>
                                 </template>
