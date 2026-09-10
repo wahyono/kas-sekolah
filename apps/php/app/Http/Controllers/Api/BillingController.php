@@ -99,15 +99,17 @@ class BillingController extends Controller
             'classId' => 'nullable|string',
             'schoolId' => 'nullable|string',
             'title' => 'required|string',
-            'amount' => 'required|numeric|min:1',
+            'amount' => 'nullable|numeric|min:0',
             'dueDate' => 'required|date',
             'studentIds' => 'nullable|array',
+            'customBillings' => 'nullable|array',
         ]);
 
         return DB::transaction(function () use ($validated, $request) {
             $classId = $request->input('classId');
             $schoolId = $request->input('schoolId');
             $cashAccountId = $request->input('cashAccountId');
+            $customBillings = $request->input('customBillings');
 
             // 1. Resolve target class and cash account
             $targetClass = null;
@@ -157,47 +159,73 @@ class BillingController extends Controller
                 return response()->json(['message' => 'Akun kas kelas belum tersedia. Silakan buat kelas terlebih dahulu.'], 422);
             }
 
+            // Determine scheme base amount
+            $baseAmount = floatval($validated['amount'] ?? 0);
+            if ($baseAmount <= 0 && !empty($customBillings)) {
+                $validCustom = array_filter(array_column($customBillings, 'amount'), fn($a) => $a > 0);
+                $baseAmount = !empty($validCustom) ? (array_sum($validCustom) / count($validCustom)) : 0;
+            }
+
             // 2. Create the Dues Scheme
             $scheme = DuesScheme::create([
                 'cash_account_id' => $cashAccountId,
                 'title' => $validated['title'],
-                'amount' => $validated['amount'],
+                'amount' => $baseAmount,
                 'due_date' => $validated['dueDate'],
             ]);
 
-            // 3. Resolve student IDs
-            $studentIds = $request->input('studentIds');
-            if (empty($studentIds)) {
-                if ($targetClass && $classId && $classId !== 'ALL') {
-                    // Specific class enrollments
-                    $studentIds = $targetClass->enrollments ? $targetClass->enrollments->pluck('student_id')->toArray() : [];
-                    if (empty($studentIds)) {
-                        $studentIds = User::where('role', 'STUDENT')->where('managed_class', $targetClass->id)->pluck('id')->toArray();
-                    }
-                    if (empty($studentIds) && $targetClass->academicYear?->school_id) {
-                        $studentIds = User::where('role', 'STUDENT')->where('school_id', $targetClass->academicYear->school_id)->pluck('id')->toArray();
-                    }
-                } else {
-                    // All classes or whole school
-                    $resolvedSchoolId = $schoolId ?? ($targetClass?->academicYear?->school_id) ?? auth()->user()?->school_id;
-                    $studentQuery = User::where('role', 'STUDENT');
-                    if ($resolvedSchoolId && $resolvedSchoolId !== 'ALL') {
-                        $studentQuery->where('school_id', $resolvedSchoolId);
-                    }
-                    $studentIds = $studentQuery->pluck('id')->toArray();
-                }
-            }
-
             $billings = [];
-            foreach (array_unique($studentIds) as $studentId) {
-                $billings[] = StudentBilling::create([
-                    'dues_scheme_id' => $scheme->id,
-                    'student_id' => $studentId,
-                    'amount_due' => $validated['amount'],
-                    'amount_paid' => 0.00,
-                    'status' => 'PENDING',
-                    'due_date' => $validated['dueDate'],
-                ]);
+
+            // 3. Create billings: Handle custom billings per student if supplied
+            if (!empty($customBillings)) {
+                foreach ($customBillings as $item) {
+                    $sId = $item['studentId'] ?? ($item['student_id'] ?? null);
+                    $sAmt = floatval($item['amount'] ?? 0);
+                    if ($sId && $sAmt > 0) {
+                        $billings[] = StudentBilling::create([
+                            'dues_scheme_id' => $scheme->id,
+                            'student_id' => $sId,
+                            'amount_due' => $sAmt,
+                            'amount_paid' => 0.00,
+                            'status' => 'PENDING',
+                            'due_date' => $validated['dueDate'],
+                        ]);
+                    }
+                }
+            } else {
+                // Standard uniform billing for student IDs or class
+                $studentIds = $request->input('studentIds');
+                if (empty($studentIds)) {
+                    if ($targetClass && $classId && $classId !== 'ALL') {
+                        // Specific class enrollments
+                        $studentIds = $targetClass->enrollments ? $targetClass->enrollments->pluck('student_id')->toArray() : [];
+                        if (empty($studentIds)) {
+                            $studentIds = User::where('role', 'STUDENT')->where('managed_class', $targetClass->id)->pluck('id')->toArray();
+                        }
+                        if (empty($studentIds) && $targetClass->academicYear?->school_id) {
+                            $studentIds = User::where('role', 'STUDENT')->where('school_id', $targetClass->academicYear->school_id)->pluck('id')->toArray();
+                        }
+                    } else {
+                        // All classes or whole school
+                        $resolvedSchoolId = $schoolId ?? ($targetClass?->academicYear?->school_id) ?? auth()->user()?->school_id;
+                        $studentQuery = User::where('role', 'STUDENT');
+                        if ($resolvedSchoolId && $resolvedSchoolId !== 'ALL') {
+                            $studentQuery->where('school_id', $resolvedSchoolId);
+                        }
+                        $studentIds = $studentQuery->pluck('id')->toArray();
+                    }
+                }
+
+                foreach (array_unique($studentIds) as $studentId) {
+                    $billings[] = StudentBilling::create([
+                        'dues_scheme_id' => $scheme->id,
+                        'student_id' => $studentId,
+                        'amount_due' => $baseAmount,
+                        'amount_paid' => 0.00,
+                        'status' => 'PENDING',
+                        'due_date' => $validated['dueDate'],
+                    ]);
+                }
             }
 
             return response()->json([

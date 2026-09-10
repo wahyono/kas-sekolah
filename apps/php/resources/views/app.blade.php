@@ -513,9 +513,20 @@
                                     <span>📄 Export PDF & Kirim Email</span>
                                 </button>
                                 <template x-if="['SUPER_ADMIN', 'ADMIN', 'TREASURER', 'KORLAS'].includes(currentUser?.role)">
-                                    <button type="button" @click="openSchemeModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-2xl text-xs font-bold shadow-md transition">
-                                        + Buat Tagihan
-                                    </button>
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <button type="button" @click="openSchemeModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1" title="Buat tagihan seragam untuk satu atau seluruh kelas">
+                                            <span>+ Buat Tagihan</span>
+                                        </button>
+                                        <button type="button" @click="openSpecialSchemeModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1" title="Buat tagihan khusus dengan nominal berbeda-beda per siswa sesuai layanan yang diambil">
+                                            <span>⭐ Tagihan Spesial</span>
+                                        </button>
+                                        <button type="button" @click="openScheduleModal()" class="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1" title="Penjadwalan Iuran Rutin Otomatis">
+                                            <span>📅 Penjadwalan Iuran</span>
+                                        </button>
+                                        <button type="button" @click="openIncomeModal()" class="gradient-button-school px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1" title="Catat Mutasi Kas Masuk / Keluar">
+                                            <span>+ Mutasi Kas</span>
+                                        </button>
+                                    </div>
                                 </template>
                             </div>
                         </div>
@@ -1200,6 +1211,135 @@
             </div>
 
 
+            <!-- ==================== MODAL BUAT TAGIHAN SPESIAL (KUSTOM PER SISWA) ==================== -->
+            <div x-show="showSpecialSchemeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-cloak>
+                <div class="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col" @click.away="showSpecialSchemeModal = false">
+                    <!-- Modal Header -->
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100 mb-3 shrink-0">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                                <span>⭐ Terbitkan Tagihan Spesial (Kustom per Siswa)</span>
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Tagihan khusus dengan nominal berbeda-beda untuk tiap siswa sesuai layanan yang diambil.</p>
+                        </div>
+                        <button type="button" @click="showSpecialSchemeModal = false" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+                    </div>
+
+                    <!-- Scrollable Form Body -->
+                    <form @submit.prevent="submitSpecialScheme()" class="flex flex-col flex-1 overflow-hidden">
+                        <div class="overflow-y-auto pr-1 space-y-4 flex-1">
+                            <!-- Program Title & Class -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">Judul / Program Layanan</label>
+                                    <input type="text" x-model="specialSchemeTitle" required placeholder="Contoh: Katering & Jemputan, Ekskul" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-purple-600 font-medium">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">Pilih Kelas</label>
+                                    <select x-model="specialSchemeClassId" @change="loadSpecialSchemeStudents()" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-purple-600 font-bold bg-white">
+                                        <template x-for="c in classes" :key="c.id">
+                                            <option :value="c.id" x-text="c.name"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Due Date & Quick Set -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-purple-50/50 p-3 rounded-2xl border border-purple-100">
+                                <div>
+                                    <label class="block text-xs font-bold text-purple-900 mb-1">Tanggal Jatuh Tempo</label>
+                                    <input type="date" x-model="specialSchemeDueDate" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-purple-600 bg-white">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-purple-900 mb-1">Set Cepat Nominal Acuan</label>
+                                    <div class="flex gap-2">
+                                        <input type="number" x-model.number="specialDefaultAmount" placeholder="50000" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-purple-600 font-bold bg-white">
+                                        <button type="button" @click="applySpecialDefaultAmount()" class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold whitespace-nowrap transition shadow-xs">
+                                            Terapkan
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Students List Table -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-xs font-bold text-slate-800">Daftar Siswa & Nominal Tagihan:</h4>
+                                    <span class="text-[11px] text-slate-500">
+                                        Aktif: <strong class="text-purple-700" x-text="specialSchemeActiveCount"></strong> dari <span x-text="specialStudentItems.length"></span> siswa
+                                    </span>
+                                </div>
+
+                                <div class="overflow-x-auto rounded-2xl border border-slate-200 max-h-56 overflow-y-auto">
+                                    <table class="w-full text-left text-xs border-collapse">
+                                        <thead class="bg-slate-100 sticky top-0 uppercase font-bold text-[10px] text-slate-600">
+                                            <tr>
+                                                <th class="p-2.5 text-center w-12">Ikut</th>
+                                                <th class="p-2.5">Nama Siswa</th>
+                                                <th class="p-2.5 text-center w-24">NIS</th>
+                                                <th class="p-2.5 text-right w-44">Nominal Tagihan (Rp)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            <template x-for="(st, sIdx) in specialStudentItems" :key="st.studentId">
+                                                <tr :class="st.enabled ? 'hover:bg-purple-50/20' : 'bg-slate-50/70 text-slate-400'">
+                                                    <!-- Toggle ikut / tidak -->
+                                                    <td class="p-2.5 text-center">
+                                                        <input type="checkbox" x-model="st.enabled" class="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer">
+                                                    </td>
+                                                    <!-- Nama siswa -->
+                                                    <td class="p-2.5">
+                                                        <span class="font-bold text-slate-800" :class="st.enabled ? '' : 'line-through text-slate-400'" x-text="st.name"></span>
+                                                    </td>
+                                                    <!-- NIS -->
+                                                    <td class="p-2.5 text-center font-mono text-slate-500 text-[11px]" x-text="st.nis"></td>
+                                                    <!-- Input Nominal -->
+                                                    <td class="p-2 text-right">
+                                                        <div class="flex items-center justify-end gap-1">
+                                                            <span class="text-[11px] text-slate-400 font-bold">Rp</span>
+                                                            <input type="number" x-model.number="st.amount" :disabled="!st.enabled" min="0" step="1000" class="w-32 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-right outline-none focus:border-purple-600" :class="st.enabled ? 'bg-white text-slate-900' : 'bg-slate-100 text-slate-400'">
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+
+                                    <!-- Empty Class Notice -->
+                                    <template x-if="specialStudentItems.length === 0">
+                                        <div class="py-8 text-center text-slate-400 text-xs">
+                                            <p class="font-bold">Belum ada data siswa di kelas ini.</p>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary & Submit Bar -->
+                        <div class="pt-4 border-t border-slate-100 mt-3 shrink-0">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                                <div class="text-xs text-slate-600">
+                                    <span>Total Siswa Mengambil Layanan: </span>
+                                    <strong class="text-purple-700 font-black" x-text="specialSchemeActiveCount + ' Siswa'"></strong>
+                                </div>
+                                <div class="text-xs text-slate-600">
+                                    <span>Akumulasi Total Tagihan: </span>
+                                    <strong class="text-emerald-700 font-black text-sm" x-text="formatCurrency(specialSchemeTotalAmount)"></strong>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-2">
+                                <button type="button" @click="showSpecialSchemeModal = false" class="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200 transition">Batal</button>
+                                <button type="submit" class="flex-1 py-2.5 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-700 shadow transition flex items-center justify-center gap-1.5">
+                                    <span>⭐ Terbitkan Tagihan Spesial</span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+
             <!-- ==================== MODAL CATAT KAS MASUK LANGSUNG ==================== -->
             <div x-show="showIncomeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-cloak>
                 <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100" @click.away="showIncomeModal = false">
@@ -1481,6 +1621,13 @@
                 schemeAmount: 25000,
                 schemeDueDate: '',
 
+                showSpecialSchemeModal: false,
+                specialSchemeTitle: '',
+                specialSchemeClassId: '',
+                specialSchemeDueDate: '',
+                specialDefaultAmount: 50000,
+                specialStudentItems: [],
+
                 showIncomeModal: false,
                 incomeCategory: 'Donasi',
                 incomeAmount: 100000,
@@ -1699,6 +1846,14 @@
                         totalPaid,
                         totalPending
                     };
+                },
+
+                get specialSchemeActiveCount() {
+                    return this.specialStudentItems.filter(i => i.enabled && (parseFloat(i.amount) > 0)).length;
+                },
+
+                get specialSchemeTotalAmount() {
+                    return this.specialStudentItems.filter(i => i.enabled).reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0);
                 },
 
                 // Computed Financial Stats
@@ -2348,6 +2503,102 @@
                         this.showToast(`⏰ Tagihan '${this.schemeTitle}' berhasil dibuat untuk ${data.totalBillingsGenerated || 0} siswa!`);
                     } catch (e) {
                         this.showToast(e.message || 'Gagal menerbitkan tagihan', 'error');
+                    }
+                },
+
+                openSpecialSchemeModal() {
+                    this.specialSchemeTitle = 'Layanan Khusus ' + new Date().toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+                    this.specialDefaultAmount = 50000;
+                    const nextMonth = new Date();
+                    nextMonth.setMonth(nextMonth.getMonth() + 1);
+                    this.specialSchemeDueDate = nextMonth.toISOString().split('T')[0];
+
+                    if (this.currentUser?.role === 'KORLAS' && this.currentUser?.managedClass) {
+                        this.specialSchemeClassId = this.currentUser.managedClass;
+                    } else if (this.classes.length > 0) {
+                        this.specialSchemeClassId = this.classes[0].id;
+                    } else {
+                        this.specialSchemeClassId = '';
+                    }
+
+                    this.loadSpecialSchemeStudents();
+                    this.showSpecialSchemeModal = true;
+                },
+
+                loadSpecialSchemeStudents() {
+                    if (!this.specialSchemeClassId) {
+                        this.specialStudentItems = [];
+                        return;
+                    }
+                    const classStudents = this.students.filter(s => {
+                        const cId = s.enrollments?.[0]?.class_id || s.managed_class;
+                        return cId === this.specialSchemeClassId;
+                    });
+
+                    const defaultNominal = this.specialDefaultAmount || 50000;
+                    this.specialStudentItems = classStudents.map(s => ({
+                        studentId: s.id,
+                        name: s.name,
+                        nis: s.nis || s.nisn || '-',
+                        enabled: true,
+                        amount: defaultNominal
+                    }));
+                },
+
+                applySpecialDefaultAmount() {
+                    const amt = parseFloat(this.specialDefaultAmount) || 0;
+                    this.specialStudentItems.forEach(item => {
+                        if (item.enabled) {
+                            item.amount = amt;
+                        }
+                    });
+                    this.showToast(`Nominal Rp ${this.formatNumber(amt)} diterapkan ke siswa aktif.`);
+                },
+
+                async submitSpecialScheme() {
+                    if (!this.specialSchemeTitle) return this.showToast('Judul program layanan wajib diisi.', 'error');
+                    if (!this.specialSchemeClassId) return this.showToast('Pilih kelas terlebih dahulu.', 'error');
+                    if (!this.specialSchemeDueDate) return this.showToast('Tanggal jatuh tempo wajib diisi.', 'error');
+
+                    const activeItems = this.specialStudentItems.filter(i => i.enabled && (parseFloat(i.amount) > 0));
+                    if (activeItems.length === 0) {
+                        return this.showToast('Minimal satu siswa harus aktif dengan nominal lebih dari Rp 0.', 'error');
+                    }
+
+                    try {
+                        let cashAccountId = null;
+                        const cashRes = await this.apiFetch(`/api/v1/cash-accounts/class/${this.specialSchemeClassId}`);
+                        if (cashRes.ok) {
+                            const cashAccs = await cashRes.json();
+                            cashAccountId = Array.isArray(cashAccs) ? cashAccs[0]?.id : cashAccs?.id;
+                        }
+
+                        const payload = {
+                            schoolId: this.activeSchoolId,
+                            classId: this.specialSchemeClassId,
+                            cashAccountId: cashAccountId,
+                            title: this.specialSchemeTitle,
+                            dueDate: this.specialSchemeDueDate,
+                            amount: 0,
+                            customBillings: activeItems.map(i => ({
+                                studentId: i.studentId,
+                                amount: parseFloat(i.amount)
+                            }))
+                        };
+
+                        const res = await this.apiFetch('/api/v1/billings/dues-scheme', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.message || 'Gagal menerbitkan tagihan spesial');
+
+                        this.showSpecialSchemeModal = false;
+                        await this.fetchBillings();
+                        this.showToast(`⭐ Tagihan Spesial '${this.specialSchemeTitle}' berhasil dibuat untuk ${data.totalBillingsGenerated || activeItems.length} siswa!`);
+                    } catch (e) {
+                        this.showToast(e.message, 'error');
                     }
                 },
 
