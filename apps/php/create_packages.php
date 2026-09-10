@@ -95,5 +95,6 @@ foreach ($iteratorFull as $file) {
         $zipFull->addFile($filePath, $relativePath);
     }
 }
+echo "Writing and compressing full release archive (may take ~30-40s)...\n";
 $zipFull->close();
 echo "kas-sekolah-cpanel.zip created: " . round(filesize($targetCpanelZip) / (1024 * 1024), 2) . " MB\n";

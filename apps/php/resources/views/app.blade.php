@@ -2677,40 +2677,65 @@
                 },
 
                 openAddStudentModal() {
+                    if (!this.classes || this.classes.length === 0) {
+                        this.fetchClasses();
+                    }
+                    const defaultClassId = (this.currentUser?.role === 'KORLAS' && this.currentUser?.managedClass)
+                        ? this.currentUser.managedClass
+                        : ((this.classes && this.classes.length > 0) ? this.classes[0].id : '');
+
                     this.newStudent = {
                         name: '',
                         nis: '',
                         nisn: '',
                         gender: 'MALE',
-                        classId: this.classes[0]?.id || '',
+                        classId: defaultClassId,
                         password: ''
                     };
                     this.showAddStudentModal = true;
                 },
 
                 async submitAddStudent() {
-                    if (!this.newStudent.name) return this.showToast('Nama siswa wajib diisi.', 'error');
-                    const generatedEmail = `${this.newStudent.name.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now()}@sekolah.sch.id`;
+                    if (!this.newStudent.name || !this.newStudent.name.trim()) {
+                        return this.showToast('Nama siswa wajib diisi.', 'error');
+                    }
+
+                    const cleanName = this.newStudent.name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'siswa';
+                    const generatedEmail = `${cleanName}_${Date.now()}@sekolah.sch.id`;
+                    const targetSchoolId = this.activeSchoolId || this.currentUser?.schoolId || this.currentUser?.school_id || (this.schools && this.schools[0]?.id) || '';
+
                     try {
                         const res = await this.apiFetch('/api/v1/auth/register', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                schoolId: this.activeSchoolId,
-                                name: this.newStudent.name,
+                                schoolId: targetSchoolId,
+                                name: this.newStudent.name.trim(),
                                 email: generatedEmail,
-                                password: this.newStudent.password || null,
+                                password: (this.newStudent.password && this.newStudent.password.trim()) ? this.newStudent.password.trim() : null,
                                 role: 'STUDENT',
-                                nis: this.newStudent.nis || null,
-                                nisn: this.newStudent.nisn || null,
-                                gender: this.newStudent.gender,
-                                classId: this.newStudent.classId || (this.classes[0]?.id || null)
+                                nis: (this.newStudent.nis && this.newStudent.nis.trim()) ? this.newStudent.nis.trim() : null,
+                                nisn: (this.newStudent.nisn && this.newStudent.nisn.trim()) ? this.newStudent.nisn.trim() : null,
+                                gender: this.newStudent.gender || 'MALE',
+                                classId: this.newStudent.classId || (this.classes && this.classes[0]?.id) || null
                             })
                         });
-                        if (!res.ok) throw new Error('Gagal menambahkan siswa');
+
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            let errMsg = data.message || 'Gagal menambahkan siswa';
+                            if (data.errors) {
+                                const errorList = Object.values(data.errors).flat();
+                                if (errorList.length > 0) {
+                                    errMsg = errorList.join(', ');
+                                }
+                            }
+                            throw new Error(errMsg);
+                        }
+
                         this.showAddStudentModal = false;
                         await this.fetchUsers();
-                        this.showToast(`✓ Siswa '${this.newStudent.name}' berhasil didaftarkan!`);
+                        this.showToast(`✓ Siswa '${this.newStudent.name.trim()}' berhasil didaftarkan!`);
                     } catch (e) {
                         this.showToast(e.message, 'error');
                     }

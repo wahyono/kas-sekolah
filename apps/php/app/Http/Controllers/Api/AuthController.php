@@ -120,48 +120,97 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
+        // 1. Auto resolve schoolId if empty
+        if (empty($request->input('schoolId')) && auth('sanctum')->check()) {
+            $request->merge(['schoolId' => auth('sanctum')->user()->school_id]);
+        }
+        if (empty($request->input('schoolId'))) {
+            $firstSchool = \App\Models\School::first();
+            if ($firstSchool) {
+                $request->merge(['schoolId' => $firstSchool->id]);
+            }
+        }
+
+        // 2. Clean empty strings for optional fields to ensure NULL in DB
+        $input = $request->all();
+        if (isset($input['password']) && trim($input['password']) === '') {
+            $request->merge(['password' => null]);
+        }
+        if (isset($input['nis']) && trim($input['nis']) === '') {
+            $request->merge(['nis' => null]);
+        }
+        if (isset($input['nisn']) && trim($input['nisn']) === '') {
+            $request->merge(['nisn' => null]);
+        }
+
         $validated = $request->validate([
             'schoolId' => 'required|string',
-            'name' => 'required|string',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'nullable|string|min:6',
+            'name' => 'required|string|max:191',
+            'email' => 'required|email|max:191|unique:users,email',
+            'password' => 'nullable|string|min:4',
             'role' => 'nullable|string',
             'phone' => 'nullable|string',
             'managedClass' => 'nullable|string',
             'studentId' => 'nullable|string',
-            'nis' => 'nullable|string',
-            'nisn' => 'nullable|string',
+            'nis' => 'nullable|string|unique:users,nis',
+            'nisn' => 'nullable|string|unique:users,nisn',
             'gender' => 'nullable|string',
             'religion' => 'nullable|string',
             'classId' => 'nullable|string',
+        ], [
+            'name.required' => 'Nama lengkap siswa wajib diisi.',
+            'email.required' => 'Email siswa wajib diisi.',
+            'email.unique' => 'Email ini sudah terdaftar di sistem.',
+            'password.min' => 'Password minimal 4 karakter.',
+            'nis.unique' => 'NIS ini sudah terdaftar pada siswa lain.',
+            'nisn.unique' => 'NISN ini sudah terdaftar pada siswa lain.',
+            'schoolId.required' => 'Data sekolah tidak ditemukan.',
         ]);
 
-        $plainPassword = !empty($validated['password']) ? $validated['password'] : bin2hex(random_bytes(5));
+        $plainPassword = !empty($validated['password']) ? $validated['password'] : 'Password123!';
 
-        $user = User::create([
-            'school_id' => $validated['schoolId'],
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password_hash' => Hash::make($plainPassword),
-            'role' => $validated['role'] ?? 'STUDENT',
-            'phone' => $validated['phone'] ?? null,
-            'managed_class' => $validated['managedClass'] ?? null,
-            'student_id' => $validated['studentId'] ?? null,
-            'nis' => $validated['nis'] ?? null,
-            'nisn' => $validated['nisn'] ?? null,
-            'gender' => $validated['gender'] ?? null,
-            'religion' => $validated['religion'] ?? null,
-            'is_active' => true,
-        ]);
+        try {
+            return \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $plainPassword) {
+                $user = User::create([
+                    'school_id' => $validated['schoolId'],
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'password_hash' => Hash::make($plainPassword),
+                    'role' => $validated['role'] ?? 'STUDENT',
+                    'phone' => $validated['phone'] ?? null,
+                    'managed_class' => !empty($validated['managedClass']) ? $validated['managedClass'] : (!empty($validated['classId']) ? $validated['classId'] : null),
+                    'student_id' => $validated['studentId'] ?? null,
+                    'nis' => !empty($validated['nis']) ? trim($validated['nis']) : null,
+                    'nisn' => !empty($validated['nisn']) ? trim($validated['nisn']) : null,
+                    'gender' => $validated['gender'] ?? 'MALE',
+                    'religion' => $validated['religion'] ?? null,
+                    'is_active' => true,
+                ]);
 
-        if (!empty($validated['classId'])) {
-            \App\Models\ClassEnrollment::create([
-                'class_id' => $validated['classId'],
-                'student_id' => $user->id,
-            ]);
+                if (!empty($validated['classId'])) {
+                    \App\Models\ClassEnrollment::create([
+                        'class_id' => $validated['classId'],
+                        'student_id' => $user->id,
+                        'created_at' => now(),
+                    ]);
+                }
+
+                return response()->json($user->load(['school', 'enrollments.class']), 201);
+            });
+        } catch (\Illuminate\Database\QueryException $qe) {
+            $msg = 'Data siswa (NIS, NISN, atau Email) sudah terdaftar pada siswa lain.';
+            if (str_contains($qe->getMessage(), 'users_nis_key')) {
+                $msg = 'NIS ini sudah terdaftar pada siswa lain.';
+            } elseif (str_contains($qe->getMessage(), 'users_nisn_key')) {
+                $msg = 'NISN ini sudah terdaftar pada siswa lain.';
+            } elseif (str_contains($qe->getMessage(), 'users_email_key')) {
+                $msg = 'Email ini sudah terdaftar pada akun lain.';
+            }
+            return response()->json([
+                'message' => $msg,
+                'errors' => ['general' => [$msg]]
+            ], 422);
         }
-
-        return response()->json($user->load(['school', 'enrollments.class']), 201);
     }
 
     public function me(Request $request)
