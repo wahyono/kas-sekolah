@@ -311,8 +311,7 @@ $registerRoutes = function () {
                 .meta { font-size: 9px; color: #64748b; margin-top: 2px; }
                 table.data { width: 100%; border-collapse: collapse; margin-top: 6px; }
                 table.data tr:nth-child(even) { background: #fbfbfe; }
-                .signatures { margin-top: 20px; width: 100%; }
-                .sig-col { width: 50%; text-align: center; font-size: 10px; }
+                .validation-notice { margin-top: 20px; padding: 10px 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; text-align: center; }
             </style>
             </head>
             <body>
@@ -326,20 +325,14 @@ $registerRoutes = function () {
                     <thead><tr>$tableHeaders</tr></thead>
                     <tbody>$rowsHtml</tbody>
                 </table>
-                <table class='signatures'>
-                    <tr>
-                        <td class='sig-col'>
-                            Mengetahui,<br><b>Kepala Sekolah</b><br><br><br>
-                            _______________________<br>
-                            NIP. .........................
-                        </td>
-                        <td class='sig-col'>
-                            Diverifikasi Oleh,<br><b>Bendahara Sekolah</b><br><br><br>
-                            _______________________<br>
-                            NIP. .........................
-                        </td>
-                    </tr>
-                </table>
+                <div class='validation-notice'>
+                    <div style='font-size: 10px; font-weight: bold; color: #334155;'>
+                        Laporan ini digenerate otomatis oleh sistem dan valid tanpa memerlukan tanda tangan basah.
+                    </div>
+                    <div style='font-size: 8px; color: #94a3b8; margin-top: 3px;'>
+                        Waktu Cetak: $datePrint | Keaslian data tersimpan secara digital pada sistem database manajemen kas sekolah.
+                    </div>
+                </div>
             </body>
             </html>";
 

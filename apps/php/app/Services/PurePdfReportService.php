@@ -35,9 +35,12 @@ class PurePdfReportService extends FPDF
     public function Footer(): void
     {
         $this->SetY(-15);
-        $this->SetFont('Arial', 'I', 8);
+        $this->SetFont('Arial', 'I', 7.5);
+        $this->SetTextColor(100, 116, 139);
+        $this->Cell(0, 4, 'Laporan ini digenerate otomatis oleh sistem dan valid.', 0, 1, 'C');
+        $this->SetFont('Arial', '', 7);
         $this->SetTextColor(148, 163, 184);
-        $this->Cell(0, 10, 'Halaman ' . $this->PageNo() . ' dari {nb} - Sistem Kas Sekolah', 0, 0, 'C');
+        $this->Cell(0, 4, 'Halaman ' . $this->PageNo() . ' dari {nb} - Sistem Kas Sekolah', 0, 0, 'C');
     }
 
     public static function generateReport(string $type, string $schoolName, array $summary, array $items): string
@@ -205,38 +208,19 @@ class PurePdfReportService extends FPDF
             $pdf->Cell(190, 10, 'Tidak ada transaksi atau data iuran untuk dicetak.', 1, 1, 'C');
         }
 
-        // 3. Signatures Section
-        if ($pdf->GetY() > 230) {
-            $pdf->AddPage();
-        }
-        $pdf->Ln(8);
-        $sigY = $pdf->GetY();
-        $pdf->SetFont('Arial', '', 9);
-        $pdf->SetTextColor(30, 41, 59);
-
-        // Left signature
-        $pdf->SetXY(20, $sigY);
-        $pdf->Cell(70, 4, 'Mengetahui,', 0, 1, 'C');
-        $pdf->SetX(20);
-        $pdf->SetFont('Arial', 'B', 9);
-        $pdf->Cell(70, 4, 'Kepala Sekolah', 0, 1, 'C');
-        $pdf->SetXY(20, $sigY + 22);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->Cell(70, 4, '________________________', 0, 1, 'C');
-        $pdf->SetX(20);
-        $pdf->Cell(70, 4, 'NIP. .....................................', 0, 1, 'C');
-
-        // Right signature
-        $pdf->SetXY(120, $sigY);
-        $pdf->Cell(70, 4, 'Diverifikasi Oleh,', 0, 1, 'C');
-        $pdf->SetX(120);
-        $pdf->SetFont('Arial', 'B', 9);
-        $pdf->Cell(70, 4, 'Bendahara Sekolah', 0, 1, 'C');
-        $pdf->SetXY(120, $sigY + 22);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->Cell(70, 4, '________________________', 0, 1, 'C');
-        $pdf->SetX(120);
-        $pdf->Cell(70, 4, 'NIP. .....................................', 0, 1, 'C');
+        // 3. Automated Validation Notice
+        $pdf->Ln(6);
+        $pdf->SetFillColor(248, 250, 252);
+        $pdf->SetDrawColor(226, 232, 240);
+        $pdf->SetLineWidth(0.2);
+        $pdf->Rect(10, $pdf->GetY(), 190, 12, 'DF');
+        $pdf->SetXY(10, $pdf->GetY() + 2);
+        $pdf->SetFont('Arial', 'B', 7.5);
+        $pdf->SetTextColor(51, 65, 85);
+        $pdf->Cell(190, 4, 'Laporan ini digenerate otomatis oleh sistem dan valid tanpa memerlukan tanda tangan basah.', 0, 1, 'C');
+        $pdf->SetFont('Arial', '', 7);
+        $pdf->SetTextColor(148, 163, 184);
+        $pdf->Cell(190, 4, 'Keaslian data tersimpan secara digital pada sistem database manajemen kas sekolah.', 0, 1, 'C');
 
         return $pdf->Output('S');
     }
@@ -386,38 +370,19 @@ class PurePdfReportService extends FPDF
             $pdf->Cell(277, 10, 'Tidak ada data siswa untuk dicetak.', 1, 1, 'C');
         }
 
-        // 4. Signatures (Landscape)
-        if ($pdf->GetY() > 165) {
-            $pdf->AddPage();
-        }
+        // 4. Automated Validation Notice (Landscape)
         $pdf->Ln(6);
-        $sigY = $pdf->GetY();
-        $pdf->SetFont('Arial', '', 9);
-        $pdf->SetTextColor(30, 41, 59);
-
-        // Left signature
-        $pdf->SetXY(35, $sigY);
-        $pdf->Cell(70, 4, 'Mengetahui,', 0, 1, 'C');
-        $pdf->SetX(35);
-        $pdf->SetFont('Arial', 'B', 9);
-        $pdf->Cell(70, 4, 'Kepala Sekolah', 0, 1, 'C');
-        $pdf->SetXY(35, $sigY + 20);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->Cell(70, 4, '________________________', 0, 1, 'C');
-        $pdf->SetX(35);
-        $pdf->Cell(70, 4, 'NIP. .....................................', 0, 1, 'C');
-
-        // Right signature
-        $pdf->SetXY(180, $sigY);
-        $pdf->Cell(70, 4, 'Diverifikasi Oleh,', 0, 1, 'C');
-        $pdf->SetX(180);
-        $pdf->SetFont('Arial', 'B', 9);
-        $pdf->Cell(70, 4, 'Bendahara Sekolah', 0, 1, 'C');
-        $pdf->SetXY(180, $sigY + 20);
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->Cell(70, 4, '________________________', 0, 1, 'C');
-        $pdf->SetX(180);
-        $pdf->Cell(70, 4, 'NIP. .....................................', 0, 1, 'C');
+        $pdf->SetFillColor(248, 250, 252);
+        $pdf->SetDrawColor(226, 232, 240);
+        $pdf->SetLineWidth(0.2);
+        $pdf->Rect(10, $pdf->GetY(), 277, 12, 'DF');
+        $pdf->SetXY(10, $pdf->GetY() + 2);
+        $pdf->SetFont('Arial', 'B', 7.5);
+        $pdf->SetTextColor(51, 65, 85);
+        $pdf->Cell(277, 4, 'Laporan ini digenerate otomatis oleh sistem dan valid tanpa memerlukan tanda tangan basah.', 0, 1, 'C');
+        $pdf->SetFont('Arial', '', 7);
+        $pdf->SetTextColor(148, 163, 184);
+        $pdf->Cell(277, 4, 'Keaslian data tersimpan secara digital pada sistem database manajemen kas sekolah.', 0, 1, 'C');
 
         return $pdf->Output('S');
     }
