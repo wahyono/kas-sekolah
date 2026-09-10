@@ -55,6 +55,7 @@ class UserController extends Controller
 
         if ($request->filled('password')) {
             $data['password_hash'] = Hash::make($request->password);
+            $data['plain_password'] = $request->password;
         }
 
         $user->update($data);

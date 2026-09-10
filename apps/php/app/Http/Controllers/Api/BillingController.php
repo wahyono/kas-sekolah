@@ -166,7 +166,56 @@ class BillingController extends Controller
                 $baseAmount = !empty($validCustom) ? (array_sum($validCustom) / count($validCustom)) : 0;
             }
 
-            // 2. Create the Dues Scheme
+            // 2. Resolve target student IDs
+            if (!empty($customBillings)) {
+                $studentIds = array_filter(array_map(fn($item) => $item['studentId'] ?? ($item['student_id'] ?? null), $customBillings));
+            } else {
+                $studentIds = $request->input('studentIds');
+                if (empty($studentIds)) {
+                    if ($targetClass && $classId && $classId !== 'ALL') {
+                        $studentIds = $targetClass->enrollments ? $targetClass->enrollments->pluck('student_id')->toArray() : [];
+                        if (empty($studentIds)) {
+                            $studentIds = User::where('role', 'STUDENT')->where('managed_class', $targetClass->id)->pluck('id')->toArray();
+                        }
+                        if (empty($studentIds) && $targetClass->academicYear?->school_id) {
+                            $studentIds = User::where('role', 'STUDENT')->where('school_id', $targetClass->academicYear->school_id)->pluck('id')->toArray();
+                        }
+                    } else {
+                        $resolvedSchoolId = $schoolId ?? ($targetClass?->academicYear?->school_id) ?? auth()->user()?->school_id;
+                        $studentQuery = User::where('role', 'STUDENT');
+                        if ($resolvedSchoolId && $resolvedSchoolId !== 'ALL') {
+                            $studentQuery->where('school_id', $resolvedSchoolId);
+                        }
+                        $studentIds = $studentQuery->pluck('id')->toArray();
+                    }
+                }
+            }
+
+            $studentIds = array_values(array_unique(array_filter((array)$studentIds)));
+
+            if (empty($studentIds)) {
+                return response()->json(['message' => 'Tidak ada siswa yang ditemukan untuk ditagihkan.'], 422);
+            }
+
+            // 3. Enforce 1x billing per month limitation
+            $targetYear = date('Y', strtotime($validated['dueDate']));
+            $targetMonth = date('n', strtotime($validated['dueDate']));
+            $monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            $monthLabel = ($monthNames[(int)$targetMonth] ?? 'Bulan ' . $targetMonth) . ' ' . $targetYear;
+
+            $alreadyBilledExists = StudentBilling::whereIn('student_id', $studentIds)
+                ->whereYear('due_date', $targetYear)
+                ->whereMonth('due_date', $targetMonth)
+                ->exists();
+
+            if ($alreadyBilledExists) {
+                return response()->json([
+                    'message' => "Tagihan untuk bulan {$monthLabel} sudah pernah diterbitkan. Dalam 1 bulan hanya diperbolehkan 1x generate tagihan.",
+                    'errors' => ['dueDate' => ["Tagihan periode {$monthLabel} sudah ada di sistem."]]
+                ], 422);
+            }
+
+            // 4. Create the Dues Scheme
             $scheme = DuesScheme::create([
                 'cash_account_id' => $cashAccountId,
                 'title' => $validated['title'],
@@ -176,7 +225,7 @@ class BillingController extends Controller
 
             $billings = [];
 
-            // 3. Create billings: Handle custom billings per student if supplied
+            // 5. Create billings: Handle custom billings per student if supplied
             if (!empty($customBillings)) {
                 foreach ($customBillings as $item) {
                     $sId = $item['studentId'] ?? ($item['student_id'] ?? null);
@@ -193,30 +242,7 @@ class BillingController extends Controller
                     }
                 }
             } else {
-                // Standard uniform billing for student IDs or class
-                $studentIds = $request->input('studentIds');
-                if (empty($studentIds)) {
-                    if ($targetClass && $classId && $classId !== 'ALL') {
-                        // Specific class enrollments
-                        $studentIds = $targetClass->enrollments ? $targetClass->enrollments->pluck('student_id')->toArray() : [];
-                        if (empty($studentIds)) {
-                            $studentIds = User::where('role', 'STUDENT')->where('managed_class', $targetClass->id)->pluck('id')->toArray();
-                        }
-                        if (empty($studentIds) && $targetClass->academicYear?->school_id) {
-                            $studentIds = User::where('role', 'STUDENT')->where('school_id', $targetClass->academicYear->school_id)->pluck('id')->toArray();
-                        }
-                    } else {
-                        // All classes or whole school
-                        $resolvedSchoolId = $schoolId ?? ($targetClass?->academicYear?->school_id) ?? auth()->user()?->school_id;
-                        $studentQuery = User::where('role', 'STUDENT');
-                        if ($resolvedSchoolId && $resolvedSchoolId !== 'ALL') {
-                            $studentQuery->where('school_id', $resolvedSchoolId);
-                        }
-                        $studentIds = $studentQuery->pluck('id')->toArray();
-                    }
-                }
-
-                foreach (array_unique($studentIds) as $studentId) {
+                foreach ($studentIds as $studentId) {
                     $billings[] = StudentBilling::create([
                         'dues_scheme_id' => $scheme->id,
                         'student_id' => $studentId,

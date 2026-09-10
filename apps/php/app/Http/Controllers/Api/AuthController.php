@@ -176,6 +176,7 @@ class AuthController extends Controller
                     'name' => $validated['name'],
                     'email' => $validated['email'],
                     'password_hash' => Hash::make($plainPassword),
+                    'plain_password' => $plainPassword,
                     'role' => $validated['role'] ?? 'STUDENT',
                     'phone' => $validated['phone'] ?? null,
                     'managed_class' => !empty($validated['managedClass']) ? $validated['managedClass'] : (!empty($validated['classId']) ? $validated['classId'] : null),

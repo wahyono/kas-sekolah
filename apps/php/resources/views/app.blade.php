@@ -779,6 +779,7 @@
                                     <tr>
                                         <th class="p-3">Nama</th>
                                         <th class="p-3">Email</th>
+                                        <th class="p-3">Password</th>
                                         <th class="p-3">Role</th>
                                         <th class="p-3">Cakupan Kelas / Anak</th>
                                         <th class="p-3 text-center">Aksi</th>
@@ -789,6 +790,17 @@
                                         <tr class="hover:bg-slate-50/50">
                                             <td class="p-3 font-bold text-slate-900" x-text="u.name"></td>
                                             <td class="p-3 text-slate-600" x-text="u.email"></td>
+                                            <td class="p-3">
+                                                <div class="inline-flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
+                                                    <span class="font-mono text-xs text-slate-800 tracking-wider" x-text="showPasswords[u.id] ? (u.plain_password || 'Password123!') : '••••••••'"></span>
+                                                    <button type="button" @click="showPasswords[u.id] = !showPasswords[u.id]" class="text-slate-400 hover:text-indigo-600 p-0.5 rounded transition" :title="showPasswords[u.id] ? 'Sembunyikan Password' : 'Lihat Password'">
+                                                        <span x-text="showPasswords[u.id] ? '🙈' : '👁️'"></span>
+                                                    </button>
+                                                    <button type="button" x-show="showPasswords[u.id]" @click="navigator.clipboard.writeText(u.plain_password || 'Password123!'); showToast('Password disalin ke clipboard!')" class="text-slate-400 hover:text-emerald-600 p-0.5 rounded transition" title="Salin Password">
+                                                        📋
+                                                    </button>
+                                                </div>
+                                            </td>
                                             <td class="p-3">
                                                 <span class="font-bold text-indigo-700" x-text="formatRole(u.role)"></span>
                                             </td>
@@ -1123,7 +1135,12 @@
 
                         <div>
                             <label class="block text-slate-700 font-bold mb-1" x-text="editingUserId ? 'Password Baru (Kosongkan jika tidak diubah)' : 'Password'"></label>
-                            <input type="password" :required="!editingUserId" x-model="userForm.password" class="w-full bg-slate-50 border border-slate-300 rounded-2xl p-2.5 text-xs text-slate-900" placeholder="••••••••">
+                            <div class="relative">
+                                <input :type="showUserFormPassword ? 'text' : 'password'" :required="!editingUserId" x-model="userForm.password" class="w-full bg-slate-50 border border-slate-300 rounded-2xl p-2.5 pr-10 text-xs text-slate-900 font-mono" placeholder="••••••••">
+                                <button type="button" @click="showUserFormPassword = !showUserFormPassword" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition" :title="showUserFormPassword ? 'Sembunyikan Password' : 'Lihat Password'">
+                                    <span x-text="showUserFormPassword ? '🙈' : '👁️'"></span>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Class assignment for Korlas -->
@@ -1604,6 +1621,8 @@
 
                 showUserModal: false,
                 editingUserId: null,
+                showPasswords: {},
+                showUserFormPassword: false,
                 userForm: {
                     name: '',
                     email: '',
@@ -2353,6 +2372,7 @@
                 // User Account Management Handlers
                 openAddAccountModal() {
                     this.editingUserId = null;
+                    this.showUserFormPassword = false;
                     this.userForm = {
                         name: '',
                         email: '',
@@ -2366,10 +2386,11 @@
 
                 openEditAccountModal(u) {
                     this.editingUserId = u.id;
+                    this.showUserFormPassword = false;
                     this.userForm = {
                         name: u.name,
                         email: u.email,
-                        password: '',
+                        password: u.plain_password || '',
                         role: u.role,
                         managedClass: u.managed_class || '',
                         studentId: u.student_id || ''
@@ -2474,6 +2495,28 @@
                     if (!this.schemeAmount || this.schemeAmount <= 0) return this.showToast('Nominal tagihan harus lebih dari 0.', 'error');
                     if (!this.schemeDueDate) return this.showToast('Tanggal jatuh tempo wajib diisi.', 'error');
 
+                    // Validasi 1x buat tagihan per bulan
+                    const targetDate = new Date(this.schemeDueDate);
+                    const targetYear = targetDate.getFullYear();
+                    const targetMonth = targetDate.getMonth();
+                    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+                    const hasExistingForMonth = this.billings.some(b => {
+                        if (!b.due_date) return false;
+                        const bDate = new Date(b.due_date);
+                        const matchDate = bDate.getFullYear() === targetYear && bDate.getMonth() === targetMonth;
+                        if (!matchDate) return false;
+                        if (this.schemeClassId && this.schemeClassId !== 'ALL') {
+                            const student = this.students.find(s => s.id === b.student_id);
+                            return student && student.class_id === this.schemeClassId;
+                        }
+                        return true;
+                    });
+
+                    if (hasExistingForMonth) {
+                        return this.showToast(`Tagihan untuk bulan ${monthNames[targetMonth]} ${targetYear} sudah pernah diterbitkan. Dalam 1 bulan hanya diperbolehkan 1x generate tagihan.`, 'error');
+                    }
+
                     try {
                         const payload = {
                             schoolId: this.activeSchoolId,
@@ -2565,6 +2608,24 @@
                     const activeItems = this.specialStudentItems.filter(i => i.enabled && (parseFloat(i.amount) > 0));
                     if (activeItems.length === 0) {
                         return this.showToast('Minimal satu siswa harus aktif dengan nominal lebih dari Rp 0.', 'error');
+                    }
+
+                    // Validasi 1x buat tagihan per bulan
+                    const targetDate = new Date(this.specialSchemeDueDate);
+                    const targetYear = targetDate.getFullYear();
+                    const targetMonth = targetDate.getMonth();
+                    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+                    const activeStudentIds = activeItems.map(i => i.studentId);
+                    const hasExistingForMonth = this.billings.some(b => {
+                        if (!b.due_date) return false;
+                        const bDate = new Date(b.due_date);
+                        const matchDate = bDate.getFullYear() === targetYear && bDate.getMonth() === targetMonth;
+                        return matchDate && activeStudentIds.includes(b.student_id);
+                    });
+
+                    if (hasExistingForMonth) {
+                        return this.showToast(`Tagihan untuk bulan ${monthNames[targetMonth]} ${targetYear} sudah pernah diterbitkan untuk siswa di kelas ini. Dalam 1 bulan hanya diperbolehkan 1x generate tagihan.`, 'error');
                     }
 
                     try {

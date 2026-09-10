@@ -27,6 +27,7 @@ class User extends Authenticatable
         'gender',
         'religion',
         'password_hash',
+        'plain_password',
         'role',
         'student_id',
         'managed_class',
@@ -43,6 +44,11 @@ class User extends Authenticatable
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    public function getPlainPasswordAttribute($value)
+    {
+        return $value ?: 'Password123!';
+    }
 
     // Tell Laravel to use password_hash column for authentication if needed
     public function getAuthPassword()
