@@ -1112,12 +1112,24 @@
                             <input type="text" x-model="newClassName" required placeholder="Contoh: Kelas 5-B" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-600">
                         </div>
                         <div class="mb-4">
-                            <label class="block text-xs font-bold text-slate-600 mb-1">Tahun Ajaran</label>
-                            <select x-model="selectedAcademicYearId" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-600">
-                                <template x-for="y in academicYears" :key="y.id">
-                                    <option :value="y.id" x-text="y.year" :selected="y.is_current"></option>
-                                </template>
-                            </select>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-bold text-slate-600">Tahun Ajaran</label>
+                                <button type="button" @click="showAddClassModal = false; openAddYearModal();" class="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold transition">
+                                    + Tambah Tahun Baru
+                                </button>
+                            </div>
+                            <template x-if="academicYears.length > 0">
+                                <select x-model="selectedAcademicYearId" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-600 font-medium">
+                                    <template x-for="y in academicYears" :key="y.id">
+                                        <option :value="y.id" x-text="y.year + (y.is_current ? ' (Tahun Aktif)' : '')"></option>
+                                    </template>
+                                </select>
+                            </template>
+                            <template x-if="academicYears.length === 0">
+                                <div class="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-[11px] leading-relaxed">
+                                    ℹ️ Belum ada tahun ajaran. Sistem akan otomatis menetapkan tahun ajaran aktif untuk kelas ini.
+                                </div>
+                            </template>
                         </div>
                         <div class="flex items-center space-x-2">
                             <button type="button" @click="showAddClassModal = false" class="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200 transition">Batal</button>
@@ -2024,6 +2036,8 @@
 
                 openAddClassModal() {
                     this.newClassName = '';
+                    const curr = this.academicYears.find(y => y.is_current) || this.academicYears[0];
+                    this.selectedAcademicYearId = curr ? curr.id : '';
                     this.showAddClassModal = true;
                 },
 
@@ -2034,13 +2048,15 @@
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                academicYearId: this.selectedAcademicYearId,
+                                academicYearId: this.selectedAcademicYearId || null,
+                                schoolId: this.activeSchoolId,
                                 name: this.newClassName
                             })
                         });
-                        if (!res.ok) throw new Error('Gagal membuat kelas');
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.message || 'Gagal membuat kelas');
                         this.showAddClassModal = false;
-                        await this.fetchClasses();
+                        await Promise.all([this.fetchClasses(), this.fetchAcademicYears()]);
                         this.showToast(`✓ Kelas '${this.newClassName}' berhasil dibuat!`);
                     } catch (e) {
                         this.showToast(e.message, 'error');
