@@ -85,13 +85,48 @@ $registerRoutes = function () {
         $datePrint = date('d F Y');
 
         try {
-            // Build PDF HTML Document
+            $isClassMatrix = in_array($type, ['CLASS_MATRIX', 'CLASS_ANNUAL_REPORT']);
             $isDues = ($type === 'DUES');
-            $pdfTitle = $isDues ? 'LAPORAN REKAPITULASI IURAN SISWA' : 'LAPORAN BUKU BESAR MUTASI KAS';
-            $pdfFilename = ($isDues ? 'Laporan-Iuran-Siswa-' : 'Laporan-Mutasi-Kas-') . date('Ymd-His') . '.pdf';
+            $className = $validated['className'] ?? ($summary['className'] ?? 'Semua Kelas');
+            $year = (int)($validated['year'] ?? ($summary['year'] ?? date('Y')));
+
+            if ($isClassMatrix) {
+                $pdfTitle = "LAPORAN REKAPITULASI IURAN SISWA ({$className}) - TAHUN {$year}";
+                $pdfFilename = 'Laporan-Rekap-Iuran-' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $className) . '-' . date('Ymd-His') . '.pdf';
+            } else {
+                $pdfTitle = $isDues ? 'LAPORAN REKAPITULASI IURAN SISWA' : 'LAPORAN BUKU BESAR MUTASI KAS';
+                $pdfFilename = ($isDues ? 'Laporan-Iuran-Siswa-' : 'Laporan-Mutasi-Kas-') . date('Ymd-His') . '.pdf';
+            }
 
             // Summary Section for PDF
-            if ($isDues) {
+            if ($isClassMatrix) {
+                $totStud = ($summary['totalStudents'] ?? count($items)) . ' Siswa';
+                $totPaid = 'Rp ' . number_format($summary['totalPaid'] ?? 0, 0, ',', '.');
+                $totPen = 'Rp ' . number_format($summary['totalPending'] ?? 0, 0, ',', '.');
+                $summaryHtml = "
+                    <table style='width: 100%; margin-bottom: 12px;'>
+                        <tr>
+                            <td width='33%' style='padding-right: 5px;'>
+                                <div style='background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px; text-align: center; border-radius: 6px;'>
+                                    <div style='font-size: 8px; color: #64748b; font-weight: bold; text-transform: uppercase;'>Total Siswa</div>
+                                    <div style='font-size: 12px; font-weight: bold; color: #0f172a; margin-top: 2px;'>$totStud</div>
+                                </div>
+                            </td>
+                            <td width='33%' style='padding: 0 5px;'>
+                                <div style='background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px; text-align: center; border-radius: 6px;'>
+                                    <div style='font-size: 8px; color: #64748b; font-weight: bold; text-transform: uppercase;'>Total Terbayar (Lunas)</div>
+                                    <div style='font-size: 12px; font-weight: bold; color: #16a34a; margin-top: 2px;'>$totPaid</div>
+                                </div>
+                            </td>
+                            <td width='33%' style='padding-left: 5px;'>
+                                <div style='background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px; text-align: center; border-radius: 6px;'>
+                                    <div style='font-size: 8px; color: #64748b; font-weight: bold; text-transform: uppercase;'>Total Sisa Tunggakan</div>
+                                    <div style='font-size: 12px; font-weight: bold; color: #dc2626; margin-top: 2px;'>$totPen</div>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>";
+            } elseif ($isDues) {
                 $totalExp = 'Rp ' . number_format($summary['totalExpected'] ?? 0, 0, ',', '.');
                 $totalCol = 'Rp ' . number_format($summary['totalCollected'] ?? 0, 0, ',', '.');
                 $totalPen = 'Rp ' . number_format($summary['totalPending'] ?? 0, 0, ',', '.');
@@ -152,7 +187,39 @@ $registerRoutes = function () {
             if (!empty($items)) {
                 foreach ($items as $idx => $it) {
                     $no = $idx + 1;
-                    if ($isDues) {
+                    if ($isClassMatrix) {
+                        $sName = htmlspecialchars($it['student_name'] ?? 'Siswa');
+                        $cName = htmlspecialchars($it['class_name'] ?? '-');
+                        $totRowPaid = 'Rp ' . number_format($it['total_paid'] ?? 0, 0, ',', '.');
+                        $totRowPending = ($it['total_pending'] ?? 0) > 0 ? ('-Rp ' . number_format($it['total_pending'], 0, ',', '.')) : '0';
+                        $pendingColor = ($it['total_pending'] ?? 0) > 0 ? 'color:#dc2626;' : 'color:#64748b;';
+
+                        $mCols = '';
+                        $months = $it['months'] ?? [];
+                        for ($m = 1; $m <= 12; $m++) {
+                            $mCell = $months[$m] ?? ['status' => 'NONE', 'paid' => 0, 'due' => 0];
+                            $st = $mCell['status'] ?? 'NONE';
+                            if ($st === 'PAID') {
+                                $amtStr = number_format(($mCell['paid'] ?? 0) / 1000, 0) . 'k';
+                                $mCols .= "<td style='padding:3px;border:1px solid #e2e8f0;text-align:center;color:#16a34a;font-weight:bold;'>$amtStr</td>";
+                            } elseif ($st === 'UNPAID') {
+                                $amtPending = ($mCell['due'] ?? 0) - ($mCell['paid'] ?? 0);
+                                $amtStr = '-' . number_format($amtPending / 1000, 0) . 'k';
+                                $mCols .= "<td style='padding:3px;border:1px solid #e2e8f0;text-align:center;color:#dc2626;font-weight:bold;'>$amtStr</td>";
+                            } else {
+                                $mCols .= "<td style='padding:3px;border:1px solid #e2e8f0;text-align:center;color:#94a3b8;'>-</td>";
+                            }
+                        }
+
+                        $rowsHtml .= "<tr>
+                            <td style='padding:4px;border:1px solid #e2e8f0;text-align:center;'>$no</td>
+                            <td style='padding:4px;border:1px solid #e2e8f0;font-weight:bold;'>$sName</td>
+                            <td style='padding:4px;border:1px solid #e2e8f0;text-align:center;'>$cName</td>
+                            $mCols
+                            <td style='padding:4px;border:1px solid #e2e8f0;text-align:right;color:#16a34a;font-weight:bold;'>$totRowPaid</td>
+                            <td style='padding:4px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;$pendingColor'>$totRowPending</td>
+                        </tr>";
+                    } elseif ($isDues) {
                         $sName = htmlspecialchars($it['student_name'] ?? 'Siswa');
                         $sProg = htmlspecialchars($it['title'] ?? 'Iuran Kas');
                         $sDue = $it['due_date'] ? date('d/m/Y', strtotime($it['due_date'])) : '-';
@@ -184,23 +251,48 @@ $registerRoutes = function () {
                     }
                 }
             } else {
-                $rowsHtml = "<tr><td colspan='6' style='padding:15px;text-align:center;color:#64748b;'>Tidak ada data transaksi atau iuran untuk dicetak.</td></tr>";
+                $colspan = $isClassMatrix ? 17 : 6;
+                $rowsHtml = "<tr><td colspan='{$colspan}' style='padding:15px;text-align:center;color:#64748b;'>Tidak ada data transaksi atau iuran untuk dicetak.</td></tr>";
             }
 
-            $tableHeaders = $isDues ? "
-                <th width='5%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>No</th>
-                <th width='25%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Nama Siswa</th>
-                <th width='25%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Program Tagihan</th>
-                <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Jatuh Tempo</th>
-                <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Nominal</th>
-                <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Status</th>" : "
-                <th width='5%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>No</th>
-                <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Tanggal</th>
-                <th width='12%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Tipe</th>
-                <th width='18%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Kategori</th>
-                <th width='35%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Keterangan</th>
-                <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Jumlah</th>";
+            if ($isClassMatrix) {
+                $tableHeaders = "
+                    <th width='3%' style='background:#4f46e5;color:white;padding:6px 2px;border:1px solid #4338ca;'>No</th>
+                    <th width='15%' style='background:#4f46e5;color:white;padding:6px 4px;border:1px solid #4338ca;'>Nama Siswa</th>
+                    <th width='8%' style='background:#4f46e5;color:white;padding:6px 2px;border:1px solid #4338ca;'>Kelas</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Jan</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Feb</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Mar</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Apr</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Mei</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Jun</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Jul</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Ags</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Sep</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Okt</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Nov</th>
+                    <th width='5%' style='background:#4f46e5;color:white;padding:6px 1px;border:1px solid #4338ca;'>Des</th>
+                    <th width='8%' style='background:#4f46e5;color:white;padding:6px 2px;border:1px solid #4338ca;'>Terbayar</th>
+                    <th width='8%' style='background:#4f46e5;color:white;padding:6px 2px;border:1px solid #4338ca;'>Tunggakan</th>";
+            } elseif ($isDues) {
+                $tableHeaders = "
+                    <th width='5%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>No</th>
+                    <th width='25%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Nama Siswa</th>
+                    <th width='25%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Program Tagihan</th>
+                    <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Jatuh Tempo</th>
+                    <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Nominal</th>
+                    <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Status</th>";
+            } else {
+                $tableHeaders = "
+                    <th width='5%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>No</th>
+                    <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Tanggal</th>
+                    <th width='12%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Tipe</th>
+                    <th width='18%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Kategori</th>
+                    <th width='35%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Keterangan</th>
+                    <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Jumlah</th>";
+            }
 
+            $bodyFontSize = $isClassMatrix ? '9px' : '11px';
             $pdfHtml = "
             <!DOCTYPE html>
             <html>
@@ -208,15 +300,16 @@ $registerRoutes = function () {
             <meta charset='utf-8'>
             <title>$pdfTitle</title>
             <style>
-                body { font-family: sans-serif; font-size: 11px; color: #1e293b; margin: 0; padding: 12px; }
-                .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; }
-                .school-name { font-size: 15px; font-weight: bold; text-transform: uppercase; color: #0f172a; }
-                .report-title { font-size: 12px; font-weight: bold; margin-top: 4px; color: #4338ca; }
-                .meta { font-size: 10px; color: #64748b; margin-top: 3px; }
-                table.data { width: 100%; border-collapse: collapse; margin-top: 8px; }
+                @page { size: " . ($isClassMatrix ? 'A4 landscape' : 'A4 portrait') . "; margin: 10mm; }
+                body { font-family: sans-serif; font-size: $bodyFontSize; color: #1e293b; margin: 0; padding: 6px; }
+                .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 8px; }
+                .school-name { font-size: 14px; font-weight: bold; text-transform: uppercase; color: #0f172a; }
+                .report-title { font-size: 11px; font-weight: bold; margin-top: 3px; color: #4338ca; }
+                .meta { font-size: 9px; color: #64748b; margin-top: 2px; }
+                table.data { width: 100%; border-collapse: collapse; margin-top: 6px; }
                 table.data tr:nth-child(even) { background: #fbfbfe; }
-                .signatures { margin-top: 30px; width: 100%; }
-                .sig-col { width: 50%; text-align: center; font-size: 11px; }
+                .signatures { margin-top: 20px; width: 100%; }
+                .sig-col { width: 50%; text-align: center; font-size: 10px; }
             </style>
             </head>
             <body>
@@ -233,12 +326,12 @@ $registerRoutes = function () {
                 <table class='signatures'>
                     <tr>
                         <td class='sig-col'>
-                            Mengetahui,<br><b>Kepala Sekolah</b><br><br><br><br>
+                            Mengetahui,<br><b>Kepala Sekolah</b><br><br><br>
                             _______________________<br>
                             NIP. .........................
                         </td>
                         <td class='sig-col'>
-                            Diverifikasi Oleh,<br><b>Bendahara Sekolah</b><br><br><br><br>
+                            Diverifikasi Oleh,<br><b>Bendahara Sekolah</b><br><br><br>
                             _______________________<br>
                             NIP. .........................
                         </td>
@@ -249,10 +342,15 @@ $registerRoutes = function () {
 
             // Render PDF in memory (DomPDF with PurePdfReportService fallback)
             if (class_exists('DOMImplementation')) {
-                $pdf = Pdf::loadHTML($pdfHtml)->setPaper('a4', 'portrait');
+                $paperOrientation = $isClassMatrix ? 'landscape' : 'portrait';
+                $pdf = Pdf::loadHTML($pdfHtml)->setPaper('a4', $paperOrientation);
                 $pdfBytes = $pdf->output();
             } else {
-                $pdfBytes = \App\Services\PurePdfReportService::generateReport($type, $schoolName, $summary, $items);
+                if ($isClassMatrix) {
+                    $pdfBytes = \App\Services\PurePdfReportService::generateClassMatrixReport($schoolName, $className, $year, $summary, $items);
+                } else {
+                    $pdfBytes = \App\Services\PurePdfReportService::generateReport($type, $schoolName, $summary, $items);
+                }
             }
 
             // Send Email with PDF Attachment

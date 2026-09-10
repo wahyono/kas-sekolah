@@ -269,8 +269,8 @@
                                 </button>
                             </template>
 
-                            <!-- Bendahara & Korlas Actions -->
-                            <template x-if="['TREASURER', 'KORLAS'].includes(currentUser?.role)">
+                            <!-- Bendahara, Admin & Korlas Actions: Penjadwalan Iuran -->
+                            <template x-if="['SUPER_ADMIN', 'ADMIN', 'TREASURER', 'KORLAS'].includes(currentUser?.role)">
                                 <button type="button" @click="openScheduleModal()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-3 rounded-2xl font-bold text-xs shadow-md transition flex items-center gap-1.5">
                                     <span>📅 Penjadwalan Iuran</span>
                                 </button>
@@ -297,7 +297,10 @@
                         🎓 Data Siswa (<span x-text="scopedStudents.length"></span>)
                     </button>
                     <button type="button" @click="activeTab = 'REPORTS'" :class="activeTab === 'REPORTS' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'" class="px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap">
-                        📋 Menu Laporan Iuran Siswa
+                        📋 Iuran Siswa
+                    </button>
+                    <button type="button" @click="activeTab = 'CLASS_MATRIX_REPORTS'" :class="activeTab === 'CLASS_MATRIX_REPORTS' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'" class="px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap">
+                        📑 Laporan Iuran Siswa
                     </button>
                     <template x-if="['SUPER_ADMIN', 'ADMIN'].includes(currentUser?.role)">
                         <button type="button" @click="activeTab = 'USERS'" :class="activeTab === 'USERS' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'" class="px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap">
@@ -566,6 +569,179 @@
                                     <p class="text-[11px] text-slate-400 mt-1">Klik tombol "+ Buat Tagihan" di atas untuk menerbitkan tagihan bagi setiap siswa.</p>
                                 </div>
                             </template>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- ==================== TAB: CLASS MATRIX REPORTS (LAPORAN IURAN SISWA 12 BULAN) ==================== -->
+                <div x-show="activeTab === 'CLASS_MATRIX_REPORTS'" class="space-y-6">
+                    <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                        <!-- Top Toolbar / Header -->
+                        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    <span>📑 Laporan Iuran Siswa (Januari - Desember)</span>
+                                </h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Rekapitulasi matriks pembayaran iuran 12 bulan per siswa berdasarkan kelas</p>
+                            </div>
+
+                            <!-- Filter & Actions Bar -->
+                            <div class="flex flex-wrap items-center gap-2">
+                                <!-- Pilih Kelas Dropdown -->
+                                <div class="flex items-center gap-1.5">
+                                    <label class="text-[11px] font-bold text-slate-500">Kelas:</label>
+                                    <select x-model="selectedMatrixClassId" class="bg-slate-100 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-bold text-slate-800 outline-none hover:bg-slate-200/60 transition">
+                                        <template x-if="currentUser?.role !== 'KORLAS'">
+                                            <option value="ALL">🏫 Semua Kelas</option>
+                                        </template>
+                                        <template x-for="c in classes" :key="c.id">
+                                            <option :value="c.id" x-text="c.name"></option>
+                                        </template>
+                                    </select>
+                                </div>
+
+                                <!-- Pilih Tahun Dropdown -->
+                                <div class="flex items-center gap-1.5">
+                                    <label class="text-[11px] font-bold text-slate-500">Tahun:</label>
+                                    <select x-model.number="selectedMatrixYear" class="bg-slate-100 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-bold text-slate-800 outline-none hover:bg-slate-200/60 transition">
+                                        <option value="2024">2024</option>
+                                        <option value="2025">2025</option>
+                                        <option value="2026">2026</option>
+                                        <option value="2027">2027</option>
+                                    </select>
+                                </div>
+
+                                <!-- Export PDF & Kirim Email Button -->
+                                <button type="button" @click="openClassMatrixPdfModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                    <span>📄 Export PDF & Kirim Email</span>
+                                </button>
+
+                                <!-- Cetak Matriks Button -->
+                                <button type="button" @click="window.print()" class="px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-300 transition flex items-center gap-1.5">
+                                    <span>🖨️ Cetak Matriks</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- KPI Summary Cards -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 my-4">
+                            <div class="bg-purple-50/60 border border-purple-200 rounded-2xl p-3.5">
+                                <span class="text-[10px] font-bold text-purple-700 uppercase tracking-wider">Total Siswa Terdaftar</span>
+                                <div class="text-xl font-black text-purple-900 mt-1" x-text="classMatrixTotals.totalStudents + ' Siswa'"></div>
+                                <div class="text-[10px] text-purple-600 mt-0.5" x-text="selectedMatrixClassId === 'ALL' ? 'Semua Kelas' : (classes.find(c => c.id === selectedMatrixClassId)?.name || 'Kelas Terpilih')"></div>
+                            </div>
+                            <div class="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-3.5">
+                                <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Total Iuran Terbayar</span>
+                                <div class="text-xl font-black text-emerald-700 mt-1" x-text="formatCurrency(classMatrixTotals.totalPaid)"></div>
+                                <div class="text-[10px] text-emerald-600 mt-0.5">Akumulasi penerimaan lunas tahun ini</div>
+                            </div>
+                            <div class="bg-rose-50/60 border border-rose-200 rounded-2xl p-3.5">
+                                <span class="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Total Sisa Tunggakan</span>
+                                <div class="text-xl font-black text-rose-700 mt-1" x-text="formatCurrency(classMatrixTotals.totalPending)"></div>
+                                <div class="text-[10px] text-rose-600 mt-0.5">Kekurangan iuran yang belum diselesaikan</div>
+                            </div>
+                        </div>
+
+                        <!-- 12-Month Matrix Table -->
+                        <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
+                            <table class="w-full text-left text-xs border-collapse min-w-[1000px]">
+                                <thead class="bg-slate-800 text-white font-bold text-[10px] uppercase">
+                                    <tr>
+                                        <th class="p-2.5 text-center w-8 border border-slate-700">No</th>
+                                        <th class="p-2.5 min-w-[150px] border border-slate-700">Nama Siswa</th>
+                                        <th class="p-2.5 text-center w-20 border border-slate-700">Kelas</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Jan</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Feb</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Mar</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Apr</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Mei</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Jun</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Jul</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Ags</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Sep</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Okt</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Nov</th>
+                                        <th class="p-2 text-center w-14 border border-slate-700">Des</th>
+                                        <th class="p-2.5 text-right w-24 border border-slate-700">Terbayar</th>
+                                        <th class="p-2.5 text-right w-24 border border-slate-700">Tunggakan</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    <template x-for="(row, idx) in classMatrixData" :key="row.student_id">
+                                        <tr class="hover:bg-purple-50/30 transition text-[11px]">
+                                            <td class="p-2 text-center text-slate-500 font-mono border-r border-slate-200" x-text="idx + 1"></td>
+                                            <td class="p-2 font-bold text-slate-900 border-r border-slate-200" x-text="row.student_name"></td>
+                                            <td class="p-2 text-center font-medium text-slate-600 border-r border-slate-200" x-text="row.class_name"></td>
+
+                                            <!-- Month 1..12 Columns -->
+                                            <template x-for="m in [1,2,3,4,5,6,7,8,9,10,11,12]" :key="m">
+                                                <td class="p-1 text-center border-r border-slate-200">
+                                                    <template x-if="row.months[m]?.status === 'PAID'">
+                                                        <span class="inline-block px-1 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                              x-text="row.months[m]?.text"
+                                                              :title="'Lunas: ' + formatCurrency(row.months[m]?.paid)"></span>
+                                                    </template>
+                                                    <template x-if="row.months[m]?.status === 'UNPAID'">
+                                                        <span class="inline-block px-1 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
+                                                              x-text="row.months[m]?.text"
+                                                              :title="'Tunggakan: ' + formatCurrency(row.months[m]?.pending)"></span>
+                                                    </template>
+                                                    <template x-if="row.months[m]?.status === 'NONE'">
+                                                        <span class="text-slate-300 font-medium">-</span>
+                                                    </template>
+                                                </td>
+                                            </template>
+
+                                            <!-- Total Terbayar -->
+                                            <td class="p-2 text-right font-bold text-emerald-600 border-r border-slate-200" x-text="formatCurrency(row.total_paid)"></td>
+                                            <!-- Sisa Tunggakan -->
+                                            <td class="p-2 text-right font-bold"
+                                                :class="row.total_pending > 0 ? 'text-rose-600' : 'text-slate-400'"
+                                                x-text="row.total_pending > 0 ? ('- ' + formatCurrency(row.total_pending)) : '0'"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                                <tfoot class="bg-slate-50 font-bold border-t-2 border-slate-300 text-slate-800 text-[11px]">
+                                    <tr>
+                                        <td colspan="3" class="p-2.5 text-right uppercase tracking-wider text-[10px]">Total Keseluruhan:</td>
+                                        <td colspan="12" class="p-2 text-center text-slate-500 font-normal italic text-[10px]">
+                                            Matriks 12 Bulan Tahun <span x-text="selectedMatrixYear"></span>
+                                        </td>
+                                        <td class="p-2.5 text-right text-emerald-700 font-black" x-text="formatCurrency(classMatrixTotals.totalPaid)"></td>
+                                        <td class="p-2.5 text-right font-black"
+                                            :class="classMatrixTotals.totalPending > 0 ? 'text-rose-700' : 'text-slate-500'"
+                                            x-text="classMatrixTotals.totalPending > 0 ? ('- ' + formatCurrency(classMatrixTotals.totalPending)) : '0'"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+
+                            <!-- Empty State -->
+                            <template x-if="classMatrixData.length === 0">
+                                <div class="py-12 text-center text-slate-400 text-xs">
+                                    <p class="text-3xl mb-2">📑</p>
+                                    <p class="font-bold text-slate-700">Tidak ada data siswa untuk kelas atau filter yang dipilih.</p>
+                                    <p class="text-[11px] text-slate-400 mt-1">Pilih kelas lain atau pastikan data siswa sudah terdaftar pada kelas tersebut.</p>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Legend -->
+                        <div class="flex flex-wrap items-center gap-4 pt-3 text-[11px] text-slate-600">
+                            <span class="font-bold text-slate-800">Keterangan:</span>
+                            <span class="flex items-center gap-1">
+                                <span class="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 inline-block"></span>
+                                <span><strong>Nilai Hijau:</strong> Iuran Lunas (Nominal Terbayar)</span>
+                            </span>
+                            <span class="flex items-center gap-1">
+                                <span class="w-3 h-3 rounded bg-rose-100 border border-rose-300 inline-block"></span>
+                                <span><strong>Nilai Merah (-) :</strong> Tunggakan (Kekurangan yang belum dibayar)</span>
+                            </span>
+                            <span class="flex items-center gap-1">
+                                <span class="w-3 h-3 rounded bg-slate-100 border border-slate-300 inline-block text-center text-[9px] leading-3">-</span>
+                                <span><strong>Tanda Dash (-):</strong> Tidak Ada Tagihan</span>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -888,7 +1064,7 @@
 
                         <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-2xl text-[11px] text-indigo-900 space-y-1">
                             <p class="font-bold">Informasi Laporan:</p>
-                            <p>Tipe Laporan: <strong x-text="reportPdfType === 'LEDGER' ? 'Buku Besar Mutasi Kas' : 'Rekapitulasi Iuran Siswa'"></strong></p>
+                            <p>Tipe Laporan: <strong x-text="reportPdfType === 'CLASS_MATRIX' ? 'Laporan Matriks Iuran 12 Bulan' : (reportPdfType === 'LEDGER' ? 'Buku Besar Mutasi Kas' : 'Rekapitulasi Iuran Siswa')"></strong></p>
                             <p>Sekolah: <strong x-text="currentSchool?.name"></strong></p>
                         </div>
 
@@ -1263,6 +1439,8 @@
                 // Filter States
                 reportStatusFilter: 'ALL',
                 reportPeriodFilter: 'ALL',
+                selectedMatrixClassId: 'ALL',
+                selectedMatrixYear: 2026,
 
                 // Modal States
                 showSchoolListModal: false,
@@ -1432,6 +1610,95 @@
                         list = list.filter(b => b.status === this.reportStatusFilter);
                     }
                     return list;
+                },
+
+                get filteredMatrixStudents() {
+                    return this.scopedStudents.filter(s => {
+                        if (this.selectedMatrixClassId === 'ALL') return true;
+                        const cId = s.enrollments?.[0]?.class_id || s.managed_class;
+                        return cId === this.selectedMatrixClassId;
+                    });
+                },
+
+                get classMatrixData() {
+                    const year = parseInt(this.selectedMatrixYear) || 2026;
+                    const students = this.filteredMatrixStudents;
+
+                    return students.map(s => {
+                        const studentClassId = s.enrollments?.[0]?.class_id || s.managed_class;
+                        const studentClassName = s.enrollments?.[0]?.class?.name || (this.classes.find(c => c.id === studentClassId)?.name) || '-';
+
+                        const studentBillings = this.billings.filter(b => {
+                            if (b.student_id !== s.id) return false;
+                            if (!b.due_date) return false;
+                            const d = new Date(b.due_date);
+                            return d.getFullYear() === year;
+                        });
+
+                        let totalPaid = 0;
+                        let totalPending = 0;
+                        const months = {};
+
+                        for (let m = 1; m <= 12; m++) {
+                            const mBillings = studentBillings.filter(b => (new Date(b.due_date).getMonth() + 1) === m);
+                            if (mBillings.length === 0) {
+                                months[m] = {
+                                    status: 'NONE',
+                                    paid: 0,
+                                    due: 0,
+                                    pending: 0,
+                                    text: '-'
+                                };
+                            } else {
+                                const due = mBillings.reduce((sum, b) => sum + parseFloat(b.amount_due || 0), 0);
+                                const paid = mBillings.reduce((sum, b) => sum + parseFloat(b.amount_paid || 0), 0);
+                                const pending = Math.max(0, due - paid);
+                                const isPaid = (pending === 0 && due > 0) || mBillings.every(b => b.status === 'PAID');
+
+                                totalPaid += paid;
+                                totalPending += pending;
+
+                                if (isPaid) {
+                                    months[m] = {
+                                        status: 'PAID',
+                                        paid: paid,
+                                        due: due,
+                                        pending: 0,
+                                        text: this.formatNumber(paid)
+                                    };
+                                } else {
+                                    months[m] = {
+                                        status: 'UNPAID',
+                                        paid: paid,
+                                        due: due,
+                                        pending: pending,
+                                        text: '- ' + this.formatNumber(pending)
+                                    };
+                                }
+                            }
+                        }
+
+                        return {
+                            student_id: s.id,
+                            student_name: s.name,
+                            class_name: studentClassName,
+                            months: months,
+                            total_paid: totalPaid,
+                            total_pending: totalPending
+                        };
+                    });
+                },
+
+                get classMatrixTotals() {
+                    const data = this.classMatrixData;
+                    const totalStudents = data.length;
+                    const totalPaid = data.reduce((sum, d) => sum + d.total_paid, 0);
+                    const totalPending = data.reduce((sum, d) => sum + d.total_pending, 0);
+                    return {
+                        totalStudents,
+                        totalPaid,
+                        totalPending
+                    };
                 },
 
                 // Computed Financial Stats
@@ -1819,15 +2086,60 @@
                     this.showPdfEmailModal = true;
                 },
 
+                openClassMatrixPdfModal() {
+                    this.reportPdfType = 'CLASS_MATRIX';
+                    this.targetEmail = this.currentUser?.email || '';
+                    this.showPdfEmailModal = true;
+                },
+
                 async submitSendPdfEmail() {
                     if (!this.targetEmail) return this.showToast('Masukkan alamat email tujuan', 'error');
                     this.showPdfEmailModal = false;
                     this.showToast('⏳ Sedang menyusun PDF dan mengirimkan email...', 'info');
                     try {
-                        const isDues = (this.reportPdfType === 'DUES');
                         let items = [];
                         let summary = {};
+                        let reportTitle = '';
 
+                        if (this.reportPdfType === 'CLASS_MATRIX') {
+                            const selectedClassName = this.selectedMatrixClassId === 'ALL'
+                                ? 'Semua Kelas'
+                                : (this.classes.find(c => c.id === this.selectedMatrixClassId)?.name || 'Kelas');
+                            summary = {
+                                totalStudents: this.classMatrixTotals.totalStudents,
+                                totalPaid: this.classMatrixTotals.totalPaid,
+                                totalPending: this.classMatrixTotals.totalPending
+                            };
+                            items = this.classMatrixData.map(d => ({
+                                student_name: d.student_name,
+                                class_name: d.class_name,
+                                months: d.months,
+                                total_paid: d.total_paid,
+                                total_pending: d.total_pending
+                            }));
+                            reportTitle = `Laporan Matriks Iuran Siswa (${selectedClassName} - Tahun ${this.selectedMatrixYear})`;
+
+                            const res = await this.apiFetch('/api/v1/notifications/email-report', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    email: this.targetEmail,
+                                    reportTitle: reportTitle,
+                                    reportType: 'CLASS_MATRIX',
+                                    schoolName: this.currentSchool?.name || 'Sekolah',
+                                    className: selectedClassName,
+                                    year: parseInt(this.selectedMatrixYear) || 2026,
+                                    summary: summary,
+                                    items: items
+                                })
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.message || 'Gagal mengirim email');
+                            this.showToast(data.message || `📄 Laporan Matriks PDF berhasil dikirimkan ke email ${this.targetEmail}!`);
+                            return;
+                        }
+
+                        const isDues = (this.reportPdfType === 'DUES' || this.reportPdfType === 'REPORTS');
                         if (isDues) {
                             items = this.filteredReportBillings.map(b => ({
                                 student_name: b.student?.name || 'Siswa',
@@ -1842,6 +2154,7 @@
                                 totalPending: this.totalPendingDues,
                                 rate: this.computedCollectionRate
                             };
+                            reportTitle = `Laporan Iuran Siswa - ${this.currentSchool?.name || 'Sekolah'}`;
                         } else {
                             items = this.scopedTransactions.map(t => ({
                                 date: t.created_at,
@@ -1855,6 +2168,7 @@
                                 totalExpense: this.scopedTransactions.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + parseFloat(t.amount || 0), 0),
                                 balance: this.computedBalance
                             };
+                            reportTitle = `Laporan Buku Besar Kas - ${this.currentSchool?.name || 'Sekolah'}`;
                         }
 
                         const res = await this.apiFetch('/api/v1/notifications/email-report', {
@@ -1862,7 +2176,7 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 email: this.targetEmail,
-                                reportTitle: isDues ? `Laporan Iuran Siswa - ${this.currentSchool?.name || 'Sekolah'}` : `Laporan Buku Besar Kas - ${this.currentSchool?.name || 'Sekolah'}`,
+                                reportTitle: reportTitle,
                                 reportType: this.reportPdfType,
                                 schoolName: this.currentSchool?.name || 'Sekolah',
                                 summary: summary,
@@ -2210,6 +2524,10 @@
                         currency: 'IDR',
                         minimumFractionDigits: 0
                     }).format(amount || 0);
+                },
+
+                formatNumber(amount) {
+                    return new Intl.NumberFormat('id-ID').format(amount || 0);
                 },
 
                 formatDate(dateStr) {
