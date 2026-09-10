@@ -508,7 +508,7 @@
                                     <button type="button" @click="reportStatusFilter = 'PENDING'" :class="reportStatusFilter === 'PENDING' ? 'bg-amber-600 text-white font-black shadow-xs' : 'text-slate-600'" class="px-3 py-1.5 rounded-xl transition">Belum Lunas</button>
                                 </div>
 
-                                <button type="button" @click="openPdfEmailModal('REPORTS')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
+                                <button type="button" @click="openPdfEmailModal('DUES')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
                                     <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                     <span>📄 Export PDF & Kirim Email</span>
                                 </button>
@@ -2142,10 +2142,12 @@
                         const isDues = (this.reportPdfType === 'DUES' || this.reportPdfType === 'REPORTS');
                         if (isDues) {
                             items = this.filteredReportBillings.map(b => ({
-                                student_name: b.student?.name || 'Siswa',
-                                title: b.dues_scheme?.title || 'Iuran Kas',
+                                student_name: b.studentName || b.student?.name || 'Siswa',
+                                class_name: b.className || b.student?.enrollments?.[0]?.class?.name || (this.classes.find(c => c.id === (b.classId || b.student?.managed_class))?.name) || '-',
+                                title: b.dues_scheme?.title || b.schemeTitle || 'Iuran Kas',
                                 due_date: b.due_date,
                                 amount: parseFloat(b.amount_due || 0),
+                                amount_paid: parseFloat(b.amount_paid || 0),
                                 status: b.status
                             }));
                             summary = {
@@ -2177,7 +2179,7 @@
                             body: JSON.stringify({
                                 email: this.targetEmail,
                                 reportTitle: reportTitle,
-                                reportType: this.reportPdfType,
+                                reportType: isDues ? 'DUES' : this.reportPdfType,
                                 schoolName: this.currentSchool?.name || 'Sekolah',
                                 summary: summary,
                                 items: items

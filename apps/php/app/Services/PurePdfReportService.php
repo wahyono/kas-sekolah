@@ -42,7 +42,7 @@ class PurePdfReportService extends FPDF
 
     public static function generateReport(string $type, string $schoolName, array $summary, array $items): string
     {
-        $isDues = (strtoupper($type) === 'DUES');
+        $isDues = in_array(strtoupper($type), ['DUES', 'REPORTS', 'REPORT', 'BILLING', 'BILLINGS']);
         $pdf = new self('P', 'mm', 'A4');
         $pdf->schoolName = $schoolName ?: 'SISTEM KAS SEKOLAH';
         $pdf->reportTitle = $isDues ? 'LAPORAN REKAPITULASI IURAN SISWA' : 'LAPORAN BUKU BESAR MUTASI KAS';
@@ -99,11 +99,12 @@ class PurePdfReportService extends FPDF
         if ($isDues) {
             $cols = [
                 ['w' => 10, 'title' => 'NO', 'align' => 'C'],
-                ['w' => 50, 'title' => 'NAMA SISWA', 'align' => 'L'],
-                ['w' => 45, 'title' => 'PROGRAM IURAN', 'align' => 'L'],
-                ['w' => 25, 'title' => 'JATUH TEMPO', 'align' => 'C'],
-                ['w' => 30, 'title' => 'NOMINAL', 'align' => 'R'],
-                ['w' => 30, 'title' => 'STATUS', 'align' => 'C'],
+                ['w' => 45, 'title' => 'NAMA SISWA', 'align' => 'L'],
+                ['w' => 25, 'title' => 'KELAS', 'align' => 'C'],
+                ['w' => 40, 'title' => 'PROGRAM IURAN', 'align' => 'L'],
+                ['w' => 22, 'title' => 'JATUH TEMPO', 'align' => 'C'],
+                ['w' => 25, 'title' => 'NOMINAL', 'align' => 'R'],
+                ['w' => 23, 'title' => 'STATUS', 'align' => 'C'],
             ];
         } else {
             $cols = [
@@ -147,18 +148,20 @@ class PurePdfReportService extends FPDF
                 $no = $idx + 1;
 
                 if ($isDues) {
-                    $sName = substr($it['student_name'] ?? 'Siswa', 0, 25);
-                    $sTitle = substr($it['title'] ?? 'Iuran Kas', 0, 22);
-                    $sDue = $it['due_date'] ? date('d/m/Y', strtotime($it['due_date'])) : '-';
+                    $sName = substr($it['student_name'] ?? 'Siswa', 0, 24);
+                    $cName = substr($it['class_name'] ?? '-', 0, 12);
+                    $sTitle = substr($it['title'] ?? 'Iuran Kas', 0, 20);
+                    $sDue = !empty($it['due_date']) ? date('d/m/Y', strtotime($it['due_date'])) : '-';
                     $sAmt = 'Rp ' . number_format($it['amount'] ?? 0, 0, ',', '.');
                     $isPaid = ($it['status'] ?? '') === 'PAID';
                     $sStatus = $isPaid ? 'LUNAS' : 'BELUM LUNAS';
 
                     $pdf->Cell(10, 6, $no, 1, 0, 'C', true);
-                    $pdf->Cell(50, 6, $sName, 1, 0, 'L', true);
-                    $pdf->Cell(45, 6, $sTitle, 1, 0, 'L', true);
-                    $pdf->Cell(25, 6, $sDue, 1, 0, 'C', true);
-                    $pdf->Cell(30, 6, $sAmt, 1, 0, 'R', true);
+                    $pdf->Cell(45, 6, $sName, 1, 0, 'L', true);
+                    $pdf->Cell(25, 6, $cName, 1, 0, 'C', true);
+                    $pdf->Cell(40, 6, $sTitle, 1, 0, 'L', true);
+                    $pdf->Cell(22, 6, $sDue, 1, 0, 'C', true);
+                    $pdf->Cell(25, 6, $sAmt, 1, 0, 'R', true);
 
                     if ($isPaid) {
                         $pdf->SetTextColor(22, 163, 74);
@@ -166,11 +169,11 @@ class PurePdfReportService extends FPDF
                         $pdf->SetTextColor(220, 38, 38);
                     }
                     $pdf->SetFont('Arial', 'B', 7);
-                    $pdf->Cell(30, 6, $sStatus, 1, 0, 'C', true);
+                    $pdf->Cell(23, 6, $sStatus, 1, 0, 'C', true);
                     $pdf->SetFont('Arial', '', 8);
                     $pdf->SetTextColor(30, 41, 59);
                 } else {
-                    $tDate = $it['date'] ? date('d/m/Y', strtotime($it['date'])) : '-';
+                    $tDate = !empty($it['date']) ? date('d/m/Y', strtotime($it['date'])) : (!empty($it['due_date']) ? date('d/m/Y', strtotime($it['due_date'])) : '-');
                     $isInc = ($it['type'] ?? '') === 'INCOME';
                     $tType = $isInc ? 'MASUK' : 'KELUAR';
                     $tCat = substr($it['category'] ?? '-', 0, 18);

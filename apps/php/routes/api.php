@@ -86,7 +86,7 @@ $registerRoutes = function () {
 
         try {
             $isClassMatrix = in_array($type, ['CLASS_MATRIX', 'CLASS_ANNUAL_REPORT']);
-            $isDues = ($type === 'DUES');
+            $isDues = in_array($type, ['DUES', 'REPORTS', 'REPORT', 'BILLING', 'BILLINGS']);
             $className = $validated['className'] ?? ($summary['className'] ?? 'Semua Kelas');
             $year = (int)($validated['year'] ?? ($summary['year'] ?? date('Y')));
 
@@ -221,21 +221,23 @@ $registerRoutes = function () {
                         </tr>";
                     } elseif ($isDues) {
                         $sName = htmlspecialchars($it['student_name'] ?? 'Siswa');
+                        $cName = htmlspecialchars($it['class_name'] ?? '-');
                         $sProg = htmlspecialchars($it['title'] ?? 'Iuran Kas');
-                        $sDue = $it['due_date'] ? date('d/m/Y', strtotime($it['due_date'])) : '-';
+                        $sDue = !empty($it['due_date']) ? date('d/m/Y', strtotime($it['due_date'])) : '-';
                         $sAmt = 'Rp ' . number_format($it['amount'] ?? 0, 0, ',', '.');
                         $isPaid = ($it['status'] ?? '') === 'PAID';
-                        $statusBadge = $isPaid ? "<span style='background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;font-weight:bold;font-size:9px;'>LUNAS</span>" : "<span style='background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:4px;font-weight:bold;font-size:9px;'>BELUM LUNAS</span>";
+                        $statusBadge = $isPaid ? "<span style='background:#dcfce7;color:#166534;padding:3px 8px;border-radius:4px;font-weight:bold;font-size:9px;'>LUNAS</span>" : "<span style='background:#fee2e2;color:#991b1b;padding:3px 8px;border-radius:4px;font-weight:bold;font-size:9px;'>BELUM LUNAS</span>";
                         $rowsHtml .= "<tr>
                             <td style='padding:6px;border:1px solid #e2e8f0;text-align:center;'>$no</td>
                             <td style='padding:6px;border:1px solid #e2e8f0;font-weight:bold;'>$sName</td>
+                            <td style='padding:6px;border:1px solid #e2e8f0;text-align:center;'>$cName</td>
                             <td style='padding:6px;border:1px solid #e2e8f0;'>$sProg</td>
                             <td style='padding:6px;border:1px solid #e2e8f0;text-align:center;'>$sDue</td>
                             <td style='padding:6px;border:1px solid #e2e8f0;text-align:right;'><b>$sAmt</b></td>
                             <td style='padding:6px;border:1px solid #e2e8f0;text-align:center;'>$statusBadge</td>
                         </tr>";
                     } else {
-                        $tDate = $it['date'] ? date('d/m/Y', strtotime($it['date'])) : '-';
+                        $tDate = !empty($it['date']) ? date('d/m/Y', strtotime($it['date'])) : (!empty($it['due_date']) ? date('d/m/Y', strtotime($it['due_date'])) : '-');
                         $tType = ($it['type'] ?? '') === 'INCOME' ? "<span style='background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;font-weight:bold;font-size:9px;'>MASUK</span>" : "<span style='background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:4px;font-weight:bold;font-size:9px;'>KELUAR</span>";
                         $tCat = htmlspecialchars($it['category'] ?? '-');
                         $tDesc = htmlspecialchars($it['description'] ?? '-');
@@ -251,7 +253,7 @@ $registerRoutes = function () {
                     }
                 }
             } else {
-                $colspan = $isClassMatrix ? 17 : 6;
+                $colspan = $isClassMatrix ? 17 : ($isDues ? 7 : 6);
                 $rowsHtml = "<tr><td colspan='{$colspan}' style='padding:15px;text-align:center;color:#64748b;'>Tidak ada data transaksi atau iuran untuk dicetak.</td></tr>";
             }
 
@@ -277,11 +279,12 @@ $registerRoutes = function () {
             } elseif ($isDues) {
                 $tableHeaders = "
                     <th width='5%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>No</th>
-                    <th width='25%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Nama Siswa</th>
-                    <th width='25%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Program Tagihan</th>
-                    <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Jatuh Tempo</th>
-                    <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Nominal</th>
-                    <th width='15%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Status</th>";
+                    <th width='24%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Nama Siswa</th>
+                    <th width='14%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Kelas</th>
+                    <th width='22%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Program Tagihan</th>
+                    <th width='12%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Jatuh Tempo</th>
+                    <th width='12%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Nominal</th>
+                    <th width='11%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>Status</th>";
             } else {
                 $tableHeaders = "
                     <th width='5%' style='background:#4f46e5;color:white;padding:8px 6px;border:1px solid #4338ca;'>No</th>
